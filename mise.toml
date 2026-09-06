@@ -8,11 +8,11 @@ ZIG_GLOBAL_CACHE_DIR = "{{config_root}}/.zig-cache/global"
 
 [tasks.test]
 description = "Run the host-side Zig game-engine tests"
-run = "zig test src/game.zig"
+run = "zig test src/scene.zig"
 
 [tasks.fmt]
-description = "Check Zig and C formatting-sensitive source"
-run = "zig fmt --check src/game.zig tools/patch_mips_abi.zig"
+description = "Check Zig source formatting"
+run = "zig fmt --check src tools/patch_mips_abi.zig"
 
 [tasks.setup]
 description = "Build the pinned libdragon SDK/toolchain locally"
@@ -48,9 +48,13 @@ run = "./scripts/bootstrap-sc64deployer.sh"
 [tasks.deploy]
 description = "Build and upload the ROM to a USB-connected SummerCart64"
 depends = ["build", "sc64deployer"]
-run = "./.build/bin/sc64deployer upload n64-2048.z64 --save-type none"
+run = "./.build/bin/sc64deployer upload n64-3d-splitscreen.z64 --save-type none"
 
 [tasks.debug]
 description = "Open the SummerCart64 debug terminal"
 depends = ["sc64deployer"]
 run = "./.build/bin/sc64deployer debug"
+
+[tasks.models]
+description = "Rebuild the editable Blender rabbit and the ROM mesh"
+run = "make models"

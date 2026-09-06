@@ -3,7 +3,7 @@ set -euo pipefail
 
 readonly PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly ARES_APP="$PROJECT_ROOT/.build/emulators/ares-v147/ares.app"
-readonly ROM="$PROJECT_ROOT/n64-2048.z64"
+readonly ROM="$PROJECT_ROOT/n64-3d-splitscreen.z64"
 
 [[ -x "$ARES_APP/Contents/MacOS/ares" ]] || {
     echo "ares v147 is not installed; run 'mise run emulator-setup'." >&2

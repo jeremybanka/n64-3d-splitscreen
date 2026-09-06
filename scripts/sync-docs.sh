@@ -3,7 +3,7 @@ set -euo pipefail
 
 readonly PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly DOCS_DIR="$PROJECT_ROOT/docs"
-readonly TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/n64-2048-docs.XXXXXX")"
+readonly TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/n64-3d-splitscreen-docs.XXXXXX")"
 trap 'rm -rf "$TEMP_DIR"' EXIT
 
 mkdir -p "$DOCS_DIR/zig" "$DOCS_DIR/libdragon" "$DOCS_DIR/summercart64" "$DOCS_DIR/m64"

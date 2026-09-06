@@ -2,8 +2,8 @@
 set -euo pipefail
 
 readonly PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-readonly ROM="$PROJECT_ROOT/n64-2048.z64"
-readonly ELF="$PROJECT_ROOT/build/n64-2048.elf"
+readonly ROM="$PROJECT_ROOT/n64-3d-splitscreen.z64"
+readonly ELF="$PROJECT_ROOT/build/n64-3d-splitscreen.elf"
 readonly TOOL_PREFIX="${N64_INST:?N64_INST must be set}/bin/mips64-elf-"
 
 [[ -f "$ROM" ]] || { echo "Missing ROM: $ROM" >&2; exit 1; }
@@ -21,6 +21,7 @@ elf_header="$("${TOOL_PREFIX}readelf" -h "$ELF")"
     exit 1
 }
 
+"$PROJECT_ROOT/scripts/verify-zig-abi.sh" "$PROJECT_ROOT/build/scene.o"
 echo "ROM header: big-endian N64 (80 37 12 40)"
 "${TOOL_PREFIX}size" "$ELF"
 shasum -a 256 "$ROM"

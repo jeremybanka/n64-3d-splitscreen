@@ -1,129 +1,78 @@
+/* Hardware adapter only: libdragon owns input, RDPQ, depth and presentation.
+ * See bridge.h and docs/architecture.md for the Zig N32 / C O64 boundary. */
 #include <libdragon.h>
 #include <stdint.h>
-#include <stdio.h>
+#include <stddef.h>
+#include "bridge.h"
+_Static_assert(INITIAL_VIEWS >= 1 && INITIAL_VIEWS <= 4, "INITIAL_VIEWS must be 1..4");
 
-enum {
-    MOVE_LEFT = 0,
-    MOVE_RIGHT = 1,
-    MOVE_UP = 2,
-    MOVE_DOWN = 3,
-    STATUS_PLAYING = 0,
-    STATUS_WON = 1,
-    STATUS_LOST = 2,
+static const color_t player_colors[4] = {
+    {239,137,101,255}, {122,184,232,255}, {234,199,98,255}, {178,154,223,255}
 };
 
-/* Scalar-only exports from game.zig; see docs/architecture.md. */
-extern uint32_t game_reset(uint32_t seed);
-extern uint32_t game_move(uint32_t direction);
-extern uint32_t game_keep_playing(void);
-extern uint32_t game_get_cell(uint32_t index);
-extern uint32_t game_get_score(void);
-extern uint32_t game_get_best(void);
-extern uint32_t game_get_status(void);
-
-static uint32_t rgba(int r, int g, int b) {
-    return graphics_make_color(r, g, b, 255);
-}
-static uint32_t tile_color(uint32_t value) {
-    switch (value) {
-        case 0: return rgba(205, 193, 180);
-        case 2: return rgba(238, 228, 218);
-        case 4: return rgba(237, 224, 200);
-        case 8: return rgba(242, 177, 121);
-        case 16: return rgba(245, 149, 99);
-        case 32: return rgba(246, 124, 95);
-        case 64: return rgba(246, 94, 59);
-        case 128: return rgba(237, 207, 114);
-        case 256: return rgba(237, 204, 97);
-        case 512: return rgba(237, 200, 80);
-        case 1024: return rgba(237, 197, 63);
-        case 2048: return rgba(237, 194, 46);
-        default: return rgba(60, 58, 50);
-    }
-}
-
-static void draw_centered(surface_t *screen, int center_x, int y, const char *text) {
-    int width = 0;
-    while (text[width] != '\0') width++;
-    graphics_draw_text(screen, center_x - width * 4, y, text);
-}
-
-static void draw_header(surface_t *screen) {
-    char score[24];
-    char best[24];
-    snprintf(score, sizeof(score), "SCORE %lu", (unsigned long)game_get_score());
-    snprintf(best, sizeof(best), "BEST  %lu", (unsigned long)game_get_best());
-
-    graphics_set_color(rgba(119, 110, 101), rgba(250, 248, 239));
-    graphics_draw_text(screen, 12, 8, "2048");
-    graphics_draw_text(screen, 12, 19, "NINTENDO 64");
-
-    graphics_draw_box(screen, 172, 5, 136, 15, rgba(187, 173, 160));
-    graphics_draw_box(screen, 172, 22, 136, 15, rgba(187, 173, 160));
-    graphics_set_color(rgba(255, 255, 255), rgba(187, 173, 160));
-    draw_centered(screen, 240, 9, score);
-    draw_centered(screen, 240, 26, best);
-}
-
-static void draw_board(surface_t *screen) {
-    const int board_x = 68;
-    const int board_y = 43;
-    const int tile = 41;
-    const int gap = 4;
-
-    graphics_draw_box(screen, board_x, board_y, tile * 4 + gap * 5,
-                      tile * 4 + gap * 5, rgba(187, 173, 160));
-
-    for (uint32_t index = 0; index < 16; index++) {
-        int row = index / 4;
-        int column = index % 4;
-        int x = board_x + gap + column * (tile + gap);
-        int y = board_y + gap + row * (tile + gap);
-        uint32_t value = game_get_cell(index);
-        graphics_draw_box(screen, x, y, tile, tile, tile_color(value));
-
-        if (value != 0) {
-            char label[12];
-            snprintf(label, sizeof(label), "%lu", (unsigned long)value);
-            uint32_t foreground = value <= 4 ? rgba(119, 110, 101) : rgba(249, 246, 242);
-            graphics_set_color(foreground, tile_color(value));
-            draw_centered(screen, x + tile / 2, y + 16, label);
+static void input(void) {
+    joypad_poll();
+    for (unsigned i = 0; i < 4; i++) {
+        joypad_port_t port = (joypad_port_t)i;
+        joypad_inputs_t stick = joypad_get_inputs(port);
+        joypad_buttons_t held = joypad_get_buttons(port);
+        joypad_buttons_t pressed = joypad_get_buttons_pressed(port);
+        int x = stick.stick_x, y = stick.stick_y;
+        if (held.d_left) x = -80;
+        if (held.d_right) x = 80;
+        if (held.d_up) y = 80;
+        if (held.d_down) y = -80;
+        uint32_t word = (uint8_t)x | ((uint32_t)(uint8_t)y << 8) | (i << 30);
+        if (pressed.a) word |= 1 << 16;
+        if (held.c_left || held.l) word |= 1 << 17;
+        if (held.c_right || held.r) word |= 1 << 18;
+        if (pressed.b) word |= 1 << 19;
+        game_input(word);
+        if (i == 0) {
+            if (pressed.start) game_command(1);
+            if (pressed.z) game_command(2);
+            if (pressed.c_down) game_command(3);
         }
     }
 }
 
-static void draw_footer(surface_t *screen) {
-    graphics_set_color(rgba(119, 110, 101), rgba(250, 248, 239));
-    draw_centered(screen, 160, 231, "STICK/D-PAD MOVE   START NEW GAME");
-}
-
-static void draw_overlay(surface_t *screen, uint32_t status) {
-    if (status == STATUS_PLAYING) return;
-
-    graphics_draw_box(screen, 89, 107, 142, 45, rgba(60, 58, 50));
-    graphics_set_color(rgba(255, 255, 255), rgba(60, 58, 50));
-    if (status == STATUS_WON) {
-        draw_centered(screen, 160, 116, "YOU MADE 2048!");
-        draw_centered(screen, 160, 134, "A CONTINUE  START NEW");
-    } else {
-        draw_centered(screen, 160, 116, "GAME OVER");
-        draw_centered(screen, 160, 134, "PRESS START");
+static unsigned transform_us, submit_us, triangles;
+static void draw_scene(unsigned player) {
+    uint64_t start_time = get_ticks_us();
+    unsigned count = scene_render(player);
+    transform_us += get_ticks_us() - start_time;
+    start_time = get_ticks_us();
+    triangles += count;
+    viewport_t v = scene_view;
+    rdpq_set_scissor(v.x, v.y, v.x + v.w, v.y + v.h);
+    rdpq_clear(RGBA32(191,215,205,255));
+    rdpq_set_mode_standard();
+    rdpq_mode_antialias(AA_STANDARD);
+    rdpq_mode_combiner(RDPQ_COMBINER_SHADE);
+    rdpq_mode_zbuf(true, true);
+    for (unsigned i = 0; i < count; i++) {
+        const triangle_t *t = &scene_triangles[i];
+        float r = (t->color >> 24) / 255.0f;
+        float g = ((t->color >> 16) & 255) / 255.0f;
+        float b = ((t->color >> 8) & 255) / 255.0f;
+        float vertices[3][7];
+        for (unsigned j = 0; j < 3; j++) {
+            vertices[j][0] = t->v[j].x / 16.0f;
+            vertices[j][1] = t->v[j].y / 16.0f;
+            vertices[j][2] = t->v[j].z / 65535.0f;
+            vertices[j][3] = r;
+            vertices[j][4] = g;
+            vertices[j][5] = b;
+            vertices[j][6] = 1.0f;
+        }
+        rdpq_triangle(&TRIFMT_ZBUF_SHADE, vertices[0], vertices[1], vertices[2]);
     }
-}
-
-static int requested_move(joypad_buttons_t pressed) {
-    if (pressed.d_left) return MOVE_LEFT;
-    if (pressed.d_right) return MOVE_RIGHT;
-    if (pressed.d_up) return MOVE_UP;
-    if (pressed.d_down) return MOVE_DOWN;
-
-    int x = joypad_get_axis_pressed(JOYPAD_PORT_1, JOYPAD_AXIS_STICK_X);
-    int y = joypad_get_axis_pressed(JOYPAD_PORT_1, JOYPAD_AXIS_STICK_Y);
-    if (x < 0) return MOVE_LEFT;
-    if (x > 0) return MOVE_RIGHT;
-    if (y > 0) return MOVE_UP;
-    if (y < 0) return MOVE_DOWN;
-    return -1;
+    rdpq_set_mode_fill(player_colors[player]);
+    rdpq_fill_rectangle(v.x, v.y, v.x + v.w, v.y + 2);
+    rdpq_set_mode_standard();
+    rdpq_text_printf(NULL, 1, v.x + 6, v.y + 13, "P%d", player + 1);
+    submit_us += get_ticks_us() - start_time;
+    if (scene_overflow) debugf("triangle capacity exceeded: %lu\n", (unsigned long)scene_overflow);
 }
 
 int main(void) {
@@ -131,32 +80,62 @@ int main(void) {
     debug_init_usblog();
     display_init(RESOLUTION_320x240, DEPTH_16_BPP, 3, GAMMA_NONE, FILTERS_RESAMPLE);
     joypad_init();
-    game_reset((uint32_t)get_ticks());
-    debugf("n64-2048: started\n");
-
+    rdpq_init();
+#ifdef RDPQ_VALIDATE
+    rdpq_debug_start();
+#endif
+    rdpq_text_register_font(1, rdpq_font_load_builtin(FONT_BUILTIN_DEBUG_VAR));
+    surface_t depth = surface_alloc(FMT_RGBA16, 320, 240);
+    game_reset(0);
+    for (unsigned i = 0; i < INITIAL_VIEWS % 4; i++) game_command(1);
+    if (AUTOTOUR) game_command(2);
+    debugf("Bunny Meadow: Zig simulation / RDPQ rasterization / 4 controllers\n");
+    uint64_t previous = get_ticks_us();
+    uint32_t accumulator = 0;
+    unsigned frame_count = 0, fps = 0;
+    uint64_t fps_time = previous;
     while (1) {
-        joypad_poll();
-        joypad_buttons_t pressed = joypad_get_buttons_pressed(JOYPAD_PORT_1);
-
-        if (pressed.start) {
-            game_reset((uint32_t)get_ticks());
-            debugf("n64-2048: new game\n");
-        } else if (game_get_status() == STATUS_WON && pressed.a) {
-            game_keep_playing();
-        } else {
-            int direction = requested_move(pressed);
-            if (direction >= 0 && game_move((uint32_t)direction)) {
-                debugf("n64-2048: move=%d score=%lu\n", direction,
-                       (unsigned long)game_get_score());
-            }
-        }
-
         surface_t *screen = display_get();
-        graphics_fill_screen(screen, rgba(250, 248, 239));
-        draw_header(screen);
-        draw_board(screen);
-        draw_footer(screen);
-        draw_overlay(screen, game_get_status());
-        display_show(screen);
+        uint64_t now = get_ticks_us();
+        uint64_t elapsed = now - previous;
+        previous = now;
+        // Fixed 60 Hz simulation, bounded catch-up after pauses or breakpoints.
+        accumulator += elapsed > 250005 ? 250005 : (uint32_t)elapsed;
+        unsigned steps = accumulator / 16667;
+        accumulator %= 16667;
+        input();
+        game_tick(steps);
+        uint32_t status = game_status();
+        unsigned views = status & 255;
+        rdpq_attach(screen, &depth);
+        rdpq_clear(RGBA32(42,61,57,255));
+        rdpq_clear_z(ZBUF_MAX);
+        transform_us = submit_us = triangles = 0;
+        for (unsigned i = 0; i < views; i++) draw_scene(i);
+        rdpq_set_scissor(0, 0, 320, 240);
+        if (views >= 3) {
+            // Keep viewport scissor X aligned to four pixels for RDP fill
+            // mode, then place the visual separator over their common edge.
+            rdpq_set_mode_fill(RGBA32(42,61,57,255));
+            rdpq_fill_rectangle(159, views == 3 ? 121 : 16, 161, 224);
+        }
+        rdpq_set_mode_standard();
+        rdpq_text_printf(NULL, 1, 7, 11, "BUNNY MEADOW   /   %d PLAYER%s", views, views == 1 ? "" : "S");
+        rdpq_text_printf(NULL, 1, 269, 11, "%d FPS", fps);
+        rdpq_text_print(NULL, 1, 7, 234, "START VIEWS   A HOP   C/L/R LOOK   Z TOUR");
+#if PROFILE
+        rdpq_text_printf(NULL, 1, 8, 219, "CPU %ums / SUBMIT %ums / %u TRI", transform_us/1000, submit_us/1000, triangles);
+#endif
+        if (status & 256) rdpq_text_print(NULL, 1, 230, 219, "AUTO TOUR");
+        rdpq_detach_show();
+        frame_count++;
+        if (now - fps_time >= 1000000) {
+            fps = (unsigned)(frame_count * 1000000ULL / (now - fps_time));
+            frame_count = 0;
+            fps_time = now;
+#ifdef RDPQ_VALIDATE
+            debugf("RDPQ validation heartbeat: %u views, %u FPS, %u triangles\n", views, fps, triangles);
+#endif
+        }
     }
 }

@@ -1,75 +1,119 @@
-# 2048 for Nintendo 64
+# Bunny Meadow — N64 3D split-screen template
 
-A from-scratch 2048 implementation for Nintendo 64, written in Zig 0.16.0 and
-rendered/input-driven through libdragon. It targets stock N64 behavior, so the
-same ROM can run on original hardware, an accuracy-focused emulator, or a
-ModRetro M64 through a SummerCart64.
+A Zig-first Nintendo 64 template with one shared 3D world, four little rabbit
+characters, and **1–4 independent third-person cameras**. Triangles, depth
+buffering, antialiasing, clears, and text are drawn by **libdragon RDPQ**.
+There is no CPU framebuffer rasterizer.
+
+<img src="docs/screenshots/4-players.png" width="640" height="480" alt="Four players in the same 3D meadow">
 
 ## Play
 
-- D-pad or analog stick: slide the board
-- A after reaching 2048: keep playing
-- Start: start a new game
+The ROM opens in four-player mode. All four rabbits exist in the world even
+when fewer cameras are displayed; each controller always owns its matching
+rabbit. A controller is not required to see the initial demonstration.
 
-The board follows the original rules: equal adjacent tiles combine once per
-move, every successful move spawns a 2 (90%) or 4 (10%), and the score is the
-sum of newly created tiles.
+| N64 control | Action |
+| --- | --- |
+| Stick / D-pad | Move relative to that player's camera |
+| A | Hop |
+| C-left / C-right, or L / R | Orbit that player's camera |
+| B | Recenter camera behind the rabbit |
+| Player 1 Start | Cycle 4 → 1 → 2 → 3 → 4 views |
+| Player 1 Z | Toggle the automatic walking/camera tour |
+| Player 1 C-down | Reset the shared world |
 
-## Toolchain
+One player fills the screen. Two players use horizontal halves. Three use a
+wide top view and two lower views. Four use quadrants. Projection uses each
+view's actual dimensions, with RDP scissoring preventing any drawing across
+the separators.
 
-[mise](https://mise.jdx.dev/) is the single entry point. The project pins Zig
-0.16.0 and Rust 1.98.0 in `mise.toml`; Rust is only used to build the official
-SummerCart deployment utility.
+## Build and run
+
+Zig 0.16.0 and the libdragon revision are pinned. Rust is only needed for the
+optional SummerCart64 deployment tool.
 
 ```sh
+mise trust
 mise install
-mise run test
-mise run setup     # first run builds the pinned libdragon GCC SDK
+mise run setup       # first SDK build can take a long time
 mise run build
-mise run verify    # inspect the linked ABI and ROM header
+mise run verify
+mise run emulate     # pinned ares v147, OpenGL 3.2, homebrew mode
 ```
 
-The ROM is written to `n64-2048.z64`. The first native libdragon toolchain build
-is substantial (several gigabytes of temporary disk and potentially an hour).
-On macOS, libdragon's official bootstrap uses Homebrew for its native build
-prerequisites.
+Output: **`n64-3d-splitscreen.z64`**. Normal builds use the checked-in rabbit
+mesh and do not require Blender. If the SDK is already installed, set
+`N64_INST=/path/to/libdragon` and run `make` with Zig on `PATH`, or reuse it
+at `.build/libdragon`.
 
-## Run in an emulator
+The emulator helper uses the project's pinned ares installation. The
+installed v148 Metal backend flickered on the development machine; v147's
+OpenGL backend is used for visual verification. Map ares's four virtual
+controllers to your keyboards/gamepads in Settings → Input. Existing user
+controller mappings are not replaced by the project.
 
-On macOS, install and launch the tested emulator build through mise:
+Build options also make individual layouts easy to inspect without controllers:
 
 ```sh
-mise run emulator-setup
-mise run emulate
+make INITIAL_VIEWS=1           # 1, 2, 3, or 4
+make INITIAL_VIEWS=3 AUTOTOUR=1 # animated demonstration
+make PROFILE=1                # scene/submission times and triangle count
+make VALIDATE=1               # libdragon RDP command validation (slow)
+make                          # restores the normal four-player configuration
 ```
 
-The project pins the official ares v147 universal build, verifies its SHA-256
-checksum, enables Homebrew Development Mode, and launches its OpenGL 3.2 video
-backend. ares v148 removed that backend; its Metal presentation flickers on
-this development machine, including when running libdragon's stock example
-ROMs. The pinned emulator is installed under `.build/` and is not committed.
+Reload the ROM in ares after building. Changes to these options automatically
+rebuild the adapter. The simulation uses a fixed 60 Hz step independently of
+rendering, with bounded catch-up after a pause.
 
-## Run on SummerCart64 and M64
+## Make it your game
 
-Update the M64 and SummerCart64 firmware first, connect the SummerCart64 USB-C
-port to the development computer, power on the M64, then run:
+- `src/game.zig`: player state, input packing, movement, hopping, separation,
+  camera yaw, tour, and view count. Replace or extend these rules.
+- `src/scene.zig`: viewport layouts, cameras, fixed-point transforms,
+  perspective projection, clipping, back-face culling, static-world cache,
+  world primitives, and animated rabbit instances.
+- `src/main.c`: the small libdragon adapter for controllers, timing, RDPQ
+  submission, font drawing, depth-buffer attachment, and presentation.
+- `src/bridge.h`: the explicit fixed-width ABI/data contract.
+- `scripts/make-rabbit.py`: reproducible Blender model and mesh exporter.
+- `assets/rabbit.blend`: editable character and studio scene.
+- `src/generated/rabbit.zig`: ROM-ready indexed mesh (130 vertices / 188 triangles).
+
+The player jerseys are colored per instance. Feet and arms move while walking,
+ears sway, and all players are depth-tested against the same environment.
+Trees, rocks, mushrooms, and the carrot monument are decorative; the sample
+physics implements ground, world bounds, and player separation, not general
+mesh collision. No audio, save system, or networking is included.
 
 ```sh
-mise run deploy
+make models  # Blender on macOS; set BLENDER for another executable location
 ```
 
-For logs in a second terminal:
+The Blender script rebuilds both the editable `.blend` and the generated Zig
+mesh. To preserve manual edits, work in a copy of the `.blend` or adapt the
+export script instead of regenerating over your edits.
 
-```sh
-mise run debug
-```
+![Rabbit model](assets/rabbit-preview.png)
 
-For SD-card use, copy `n64-2048.z64` anywhere in the card's ROM library and
-launch it from N64FlashcartMenu. No save type or Expansion Pak is required.
+## Verification and limits
 
-## Documentation
+`make test` runs 12 host tests covering controller isolation, jumping,
+world bounds, view layouts, projection/clipping, winding, cache invalidation,
+and an animated tour through every layout. `mise run verify` checks the ROM
+header, O64 ELF, implicit runtime calls, and the reserved global pointer.
 
-Start at [`docs/README.md`](docs/README.md). The repository includes offline
-snapshots of the Zig language reference, libdragon's wiki and documented
-headers, SummerCart64's protocol/quick-start material, and an M64 quick guide.
-Refresh them with `mise run docs`.
+See [the ares verification record](docs/verification.md) and
+[the Zig/libdragon architecture](docs/architecture.md), especially before
+changing compiler flags or the ABI bridge. RSP triangle setup and RDP drawing
+are hardware accelerated; transforms and clipping run on the CPU in Zig.
+This is a small working foundation, not a high-throughput 3D engine.
+
+The framebuffer is 320×240 at 16 bpp, triple buffered, with one shared 16-bit
+Z surface. No Expansion Pak is required by the allocation budget. Real N64,
+SummerCart64, and M64 hardware have not been tested in this adaptation.
+
+For hardware deployment, connect a SummerCart64 and run `mise run deploy`;
+`mise run debug` opens its debug terminal. For SD-card use, copy the `.z64`
+into the cart's ROM library. The ROM has no save type.

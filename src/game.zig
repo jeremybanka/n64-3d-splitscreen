@@ -1,307 +1,194 @@
-//! Platform-independent 2048 game engine.
-//!
-//! The N64 frontend calls the exported scalar-only functions at the end of this
-//! file. Keeping the boundary to 32-bit integers makes it safe for the tiny ABI
-//! bridge used by the libdragon frontend.
-
-pub const Direction = enum(u32) {
-    left = 0,
-    right = 1,
-    up = 2,
-    down = 3,
+//! Shared world and controller simulation. All runtime math is integer Q8 so
+//! LLVM's N32 floating-point convention never crosses the libdragon O64 seam.
+const std = @import("std");
+pub const Q: i32 = 256;
+pub const Vec3 = struct { x: i32 = 0, y: i32 = 0, z: i32 = 0 };
+pub const colors = [4]u32{ 0xef8965ff, 0x7ab8e8ff, 0xeac762ff, 0xb29adfff };
+pub const sine = blk: {
+    var table: [256]i32 = undefined;
+    for (&table, 0..) |*v, i| v.* = @intFromFloat(@sin(@as(f64, @floatFromInt(i)) * 2 * std.math.pi / 256) * Q);
+    break :blk table;
 };
-
-pub const Status = enum(u32) {
-    playing = 0,
-    won = 1,
-    lost = 2,
+pub fn sin(a: i32) i32 {
+    return sine[@intCast(@mod(a, 256))];
+}
+pub fn cos(a: i32) i32 {
+    return sin(a + 64);
+}
+pub fn mul(a: i32, b: i32) i32 {
+    return @intCast((@as(i64, a) * b) >> 8);
+}
+pub const Player = struct {
+    pos: Vec3 = .{},
+    yaw: i32 = 0,
+    camera: i32 = 0,
+    velocity_y: i32 = 0,
+    walk: i32 = 0,
+    moving: bool = false,
+    input: u32 = 0,
 };
+pub var players: [4]Player = .{Player{}} ** 4;
+pub var view_count: u32 = 4;
+pub var ticks: u32 = 0;
+pub var tour = false;
 
-const cell_count = 16;
-const side = 4;
-const winning_exponent = 11; // 2^11 = 2048
-
-pub const Game = struct {
-    /// Each cell stores log2(tile value), or zero for an empty cell.
-    cells: [cell_count]u8 = [_]u8{0} ** cell_count,
-    score: u32 = 0,
-    best: u32 = 0,
-    rng: u32 = 0x2048_4E36,
-    status: Status = .playing,
-
-    pub fn reset(self: *Game, seed: u32) void {
-        const previous_best = @max(self.best, self.score);
-        self.* = .{
-            .best = previous_best,
-            .rng = if (seed == 0) 0x2048_4E36 else seed,
-        };
-        self.spawnTile();
-        self.spawnTile();
+pub fn reset() void {
+    ticks = 0;
+    tour = false;
+    for (&players, 0..) |*p, i| {
+        const a: i32 = @as(i32, @intCast(i)) * 64 + 32;
+        p.* = .{ .pos = .{ .x = mul(sin(a), 3 * Q), .z = mul(cos(a), 3 * Q) }, .yaw = a + 128, .camera = a + 128 };
     }
-
-    pub fn move(self: *Game, direction: Direction) bool {
-        if (self.status != .playing) return false;
-
-        var changed = false;
-        for (0..side) |line| {
-            changed = self.collapseLine(direction, line) or changed;
-        }
-
-        if (!changed) {
-            if (!self.canMove()) self.status = .lost;
-            return false;
-        }
-
-        self.spawnTile();
-        // A winning merge takes priority over game-over. If the freshly
-        // spawned tile leaves no moves, the loss is reported after the player
-        // chooses to continue.
-        if (self.status == .playing and !self.canMove()) self.status = .lost;
-        self.best = @max(self.best, self.score);
-        return true;
-    }
-
-    pub fn keepPlaying(self: *Game) void {
-        if (self.status == .won) self.status = .playing;
-    }
-
-    fn collapseLine(self: *Game, direction: Direction, line: usize) bool {
-        var compacted = [_]u8{0} ** side;
-        var compacted_len: usize = 0;
-        var before = [_]u8{0} ** side;
-
-        for (0..side) |position| {
-            const value = self.cells[lineIndex(direction, line, position)];
-            before[position] = value;
-            if (value != 0) {
-                compacted[compacted_len] = value;
-                compacted_len += 1;
+}
+fn axis(word: u32, shift: u5) i32 {
+    const v: i8 = @bitCast(@as(u8, @truncate(word >> shift)));
+    return if (@abs(@as(i32, v)) < 12) 0 else v;
+}
+pub fn step() void {
+    ticks +%= 1;
+    for (&players, 0..) |*p, i| {
+        const x = axis(p.input, 0);
+        const y = axis(p.input, 8);
+        if (p.input & (1 << 17) != 0) p.camera -= 2;
+        if (p.input & (1 << 18) != 0) p.camera += 2;
+        p.camera = @mod(p.camera, 256);
+        if (p.input & (1 << 19) != 0) p.camera = p.yaw;
+        p.moving = x != 0 or y != 0;
+        if (tour and !p.moving) {
+            const a: i32 = @intCast((ticks / 4 + i * 64 + 32) % 256);
+            p.pos.x = mul(sin(a), 3 * Q);
+            p.pos.z = mul(cos(a), 3 * Q);
+            p.yaw = a + 128;
+            p.camera = p.yaw;
+            p.moving = true;
+        } else if (p.moving) {
+            // Normalize the stick's square corners without a runtime sqrt.
+            const magnitude = @max(@abs(x), @abs(y)) + @min(@abs(x), @abs(y)) / 2;
+            const scale: i32 = @intCast(@max(magnitude, 80));
+            const dx = @divTrunc((mul(x, cos(p.camera)) + mul(y, sin(p.camera))) * 22, scale);
+            const dz = @divTrunc((-mul(x, sin(p.camera)) + mul(y, cos(p.camera))) * 22, scale);
+            p.pos.x = std.math.clamp(p.pos.x + dx, -13 * Q, 13 * Q);
+            p.pos.z = std.math.clamp(p.pos.z + dz, -13 * Q, 13 * Q);
+            // Quantized facing is appropriate for the deliberately low-poly model.
+            var best_dot: i32 = -0x7fffffff;
+            var a: i32 = 0;
+            while (a < 256) : (a += 8) {
+                const dot = dx * sin(a) + dz * cos(a);
+                if (dot > best_dot) {
+                    best_dot = dot;
+                    p.yaw = a;
+                }
             }
         }
-
-        var output = [_]u8{0} ** side;
-        var read: usize = 0;
-        var write: usize = 0;
-        while (read < compacted_len) {
-            if (read + 1 < compacted_len and compacted[read] == compacted[read + 1]) {
-                const merged = compacted[read] + 1;
-                output[write] = merged;
-                self.score +%= tileValue(merged);
-                if (merged >= winning_exponent) self.status = .won;
-                read += 2;
+        if (p.moving) p.walk = @mod(p.walk + 9, 256);
+        if ((p.input & (1 << 16) != 0 or (tour and ticks % 300 == i * 60)) and p.pos.y == 0) p.velocity_y = 57;
+        // Jump is edge-triggered, even if a frame contains multiple simulation steps.
+        p.input &= ~@as(u32, 1 << 16);
+        p.pos.y += p.velocity_y;
+        p.velocity_y -= 3;
+        if (p.pos.y <= 0) {
+            p.pos.y = 0;
+            p.velocity_y = 0;
+        }
+    }
+    // Symmetric separation: all four rabbits stay in the same physical world,
+    // including rabbits whose cameras are currently hidden.
+    for (0..4) |i| for (i + 1..4) |j| {
+        const dx = players[j].pos.x - players[i].pos.x;
+        const dz = players[j].pos.z - players[i].pos.z;
+        const d = @max(@abs(dx), @abs(dz));
+        if (d < 150 and @abs(players[i].pos.y - players[j].pos.y) < Q) {
+            const push: i32 = @intCast((150 - d) / 2 + 1);
+            if (@abs(dx) >= @abs(dz)) {
+                const s: i32 = if (dx >= 0) 1 else -1;
+                players[i].pos.x -= push * s;
+                players[j].pos.x += push * s;
             } else {
-                output[write] = compacted[read];
-                read += 1;
+                const s: i32 = if (dz >= 0) 1 else -1;
+                players[i].pos.z -= push * s;
+                players[j].pos.z += push * s;
             }
-            write += 1;
         }
-
-        var changed = false;
-        for (0..side) |position| {
-            if (before[position] != output[position]) changed = true;
-            self.cells[lineIndex(direction, line, position)] = output[position];
-        }
-        return changed;
-    }
-
-    fn spawnTile(self: *Game) void {
-        var empty_count: usize = 0;
-        for (self.cells) |value| {
-            if (value == 0) empty_count += 1;
-        }
-        if (empty_count == 0) return;
-
-        var target = @as(usize, self.random() % @as(u32, @intCast(empty_count)));
-        for (&self.cells) |*value| {
-            if (value.* != 0) continue;
-            if (target == 0) {
-                // The original game uses a 90/10 distribution for 2 and 4.
-                value.* = if (self.random() % 10 == 0) 2 else 1;
-                return;
-            }
-            target -= 1;
-        }
-    }
-
-    fn random(self: *Game) u32 {
-        var value = self.rng;
-        value ^= value << 13;
-        value ^= value >> 17;
-        value ^= value << 5;
-        self.rng = value;
-        return value;
-    }
-
-    fn canMove(self: *const Game) bool {
-        for (self.cells, 0..) |value, index| {
-            if (value == 0) return true;
-            const row = index / side;
-            const column = index % side;
-            if (column + 1 < side and value == self.cells[index + 1]) return true;
-            if (row + 1 < side and value == self.cells[index + side]) return true;
-        }
-        return false;
-    }
-};
-
-fn lineIndex(direction: Direction, line: usize, position: usize) usize {
-    return switch (direction) {
-        .left => line * side + position,
-        .right => line * side + (side - 1 - position),
-        .up => position * side + line,
-        .down => (side - 1 - position) * side + line,
     };
+    for (&players) |*p| {
+        p.pos.x = std.math.clamp(p.pos.x, -13 * Q, 13 * Q);
+        p.pos.z = std.math.clamp(p.pos.z, -13 * Q, 13 * Q);
+    }
 }
-
-fn tileValue(exponent: u8) u32 {
-    if (exponent == 0) return 0;
-    if (exponent >= 31) return 0x8000_0000;
-    return @as(u32, 1) << @intCast(exponent);
-}
-
-var active_game = Game{};
-
-/// Local memory primitive used when Zig lowers aggregate initialization. The
-/// build renames Zig's unresolved `memset` reference to this symbol so newlib's
-/// O64 implementation is never called from N32-generated code.
-export fn zig_memset_impl(destination: [*]volatile u8, byte: u8, length: usize) [*]volatile u8 {
-    @setRuntimeSafety(false);
-    for (0..length) |index| destination[index] = byte;
-    return destination;
-}
-
-export fn game_reset(seed: u32) u32 {
-    active_game.reset(seed);
+export fn game_reset(_: u32) u32 {
+    reset();
+    view_count = 4;
     return 0;
 }
-
-export fn game_move(direction: u32) u32 {
-    const parsed = switch (direction) {
-        0 => Direction.left,
-        1 => Direction.right,
-        2 => Direction.up,
-        3 => Direction.down,
-        else => return 0,
-    };
-    return @intFromBool(active_game.move(parsed));
-}
-
-export fn game_keep_playing() u32 {
-    active_game.keepPlaying();
+export fn game_input(word: u32) u32 {
+    const p = &players[word >> 30];
+    p.input = (word & 0x3fffffff) | (p.input & (1 << 16));
     return 0;
 }
-
-export fn game_get_cell(index: u32) u32 {
-    if (index >= cell_count) return 0;
-    return tileValue(active_game.cells[index]);
+export fn game_tick(count: u32) u32 {
+    for (0..@min(count, 15)) |_| step();
+    return 0;
 }
-
-export fn game_get_score() u32 {
-    return active_game.score;
-}
-
-export fn game_get_best() u32 {
-    return active_game.best;
-}
-
-export fn game_get_status() u32 {
-    return @intFromEnum(active_game.status);
-}
-
-test "reset starts with exactly two tiles" {
-    const std = @import("std");
-    var game = Game{};
-    game.reset(1);
-    var occupied: usize = 0;
-    for (game.cells) |value| {
-        if (value != 0) occupied += 1;
+export fn game_command(command: u32) u32 {
+    switch (command) {
+        1 => view_count = view_count % 4 + 1,
+        2 => tour = !tour,
+        3 => reset(),
+        else => {},
     }
-    try std.testing.expectEqual(@as(usize, 2), occupied);
-    try std.testing.expectEqual(@as(u32, 0), game.score);
+    return view_count;
+}
+export fn game_status() u32 {
+    return view_count | (@as(u32, @intFromBool(tour)) << 8);
 }
 
-test "a line merges each tile only once" {
-    const std = @import("std");
-    var game = Game{};
-    game.cells[0..4].* = .{ 1, 1, 1, 1 };
-    _ = game.collapseLine(.left, 0);
-    try std.testing.expectEqualSlices(u8, &.{ 2, 2, 0, 0 }, game.cells[0..4]);
-    try std.testing.expectEqual(@as(u32, 8), game.score);
-
-    game.cells[0..4].* = .{ 1, 1, 1, 0 };
-    game.score = 0;
-    _ = game.collapseLine(.left, 0);
-    try std.testing.expectEqualSlices(u8, &.{ 2, 1, 0, 0 }, game.cells[0..4]);
-    try std.testing.expectEqual(@as(u32, 4), game.score);
-}
-
-test "all four directions orient lines correctly" {
-    const std = @import("std");
-    var game = Game{};
-    game.cells = .{
-        1, 0, 0, 0,
-        1, 0, 0, 0,
-        0, 0, 0, 0,
-        0, 0, 0, 0,
-    };
-    _ = game.collapseLine(.down, 0);
-    try std.testing.expectEqual(@as(u8, 2), game.cells[12]);
-
-    game.cells = .{
-        1, 1, 0, 0,
-        0, 0, 0, 0,
-        0, 0, 0, 0,
-        0, 0, 0, 0,
-    };
-    _ = game.collapseLine(.right, 0);
-    try std.testing.expectEqual(@as(u8, 2), game.cells[3]);
-}
-
-test "only a successful move spawns a tile" {
-    const std = @import("std");
-    var game = Game{ .rng = 7 };
-    game.cells[0] = 1;
-    try std.testing.expect(!game.move(.left));
-
-    var occupied: usize = 0;
-    for (game.cells) |value| {
-        if (value != 0) occupied += 1;
+test "all view counts preserve a single shared world" {
+    reset();
+    view_count = 4;
+    const before = players;
+    for (1..5) |n| {
+        _ = game_command(1);
+        try std.testing.expectEqual(@as(u32, @intCast(n)), view_count);
     }
-    try std.testing.expectEqual(@as(usize, 1), occupied);
-
-    try std.testing.expect(game.move(.right));
-    occupied = 0;
-    for (game.cells) |value| {
-        if (value != 0) occupied += 1;
+    try std.testing.expectEqualDeep(before, players);
+}
+test "packed controller input moves only the addressed rabbit" {
+    reset();
+    const before = players;
+    _ = game_input((2 << 30) | (80 << 8));
+    step();
+    try std.testing.expect(players[2].pos.x != before[2].pos.x);
+    try std.testing.expectEqualDeep(before[0].pos, players[0].pos);
+    try std.testing.expectEqualDeep(before[1].pos, players[1].pos);
+    try std.testing.expectEqualDeep(before[3].pos, players[3].pos);
+}
+test "jump lands and does not repeat without another press" {
+    reset();
+    _ = game_input(1 << 16);
+    step();
+    try std.testing.expect(players[0].pos.y > 0);
+    for (0..80) |_| step();
+    try std.testing.expectEqual(@as(i32, 0), players[0].pos.y);
+}
+test "world bounds and overlapping players remain bounded" {
+    reset();
+    _ = game_input(80 << 8);
+    for (0..2000) |_| step();
+    try std.testing.expect(@abs(players[0].pos.x) <= 13 * Q);
+    try std.testing.expect(@abs(players[0].pos.z) <= 13 * Q);
+    players[1].pos = players[0].pos;
+    step();
+    try std.testing.expect(!std.meta.eql(players[0].pos, players[1].pos));
+    for (players) |p| {
+        try std.testing.expect(@abs(p.pos.x) <= 13 * Q and @abs(p.pos.z) <= 13 * Q);
     }
-    try std.testing.expectEqual(@as(usize, 2), occupied);
 }
 
-test "full board without neighbors is lost" {
-    const std = @import("std");
-    var game = Game{};
-    game.cells = .{
-        1, 2, 1, 2,
-        2, 1, 2, 1,
-        1, 2, 1, 2,
-        2, 1, 2, 1,
-    };
-    try std.testing.expect(!game.canMove());
-    try std.testing.expect(!game.move(.left));
-    try std.testing.expectEqual(Status.lost, game.status);
-}
-
-test "empty cells have value zero" {
-    const std = @import("std");
-    try std.testing.expectEqual(@as(u32, 0), tileValue(0));
-    try std.testing.expectEqual(@as(u32, 2), tileValue(1));
-}
-
-test "creating 2048 raises the won state" {
-    const std = @import("std");
-    var game = Game{};
-    game.cells[0..4].* = .{ 10, 10, 0, 0 };
-    _ = game.collapseLine(.left, 0);
-    try std.testing.expectEqual(Status.won, game.status);
-    try std.testing.expectEqual(@as(u8, 11), game.cells[0]);
+test "jump press survives a render frame with no simulation step" {
+    reset();
+    _ = game_input(1 << 16);
+    _ = game_tick(0);
+    _ = game_input(0);
+    step();
+    try std.testing.expect(players[0].pos.y > 0);
 }
