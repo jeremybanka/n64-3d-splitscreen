@@ -1,0 +1,56 @@
+[tools]
+zig = "0.16.0"
+rust = "1.98.0"
+
+[env]
+N64_INST = "{{config_root}}/.build/libdragon"
+ZIG_GLOBAL_CACHE_DIR = "{{config_root}}/.zig-cache/global"
+
+[tasks.test]
+description = "Run the host-side Zig game-engine tests"
+run = "zig test src/game.zig"
+
+[tasks.fmt]
+description = "Check Zig and C formatting-sensitive source"
+run = "zig fmt --check src/game.zig tools/patch_mips_abi.zig"
+
+[tasks.setup]
+description = "Build the pinned libdragon SDK/toolchain locally"
+run = "./scripts/bootstrap-libdragon.sh"
+
+[tasks.build]
+description = "Build the N64 ROM"
+depends = ["test"]
+run = "make"
+
+[tasks.verify]
+description = "Build and inspect the N64 ROM and linked ABI"
+depends = ["build"]
+run = "./scripts/verify-rom.sh"
+
+[tasks.emulator-setup]
+description = "Install the pinned ares v147 macOS emulator"
+run = "./scripts/bootstrap-ares.sh"
+
+[tasks.emulate]
+description = "Build and run the ROM in ares using the stable OpenGL backend"
+depends = ["build", "emulator-setup"]
+run = "./scripts/run-ares.sh"
+
+[tasks.docs]
+description = "Refresh local documentation snapshots from upstream"
+run = "./scripts/sync-docs.sh"
+
+[tasks.sc64deployer]
+description = "Build the pinned SummerCart64 deployment utility"
+run = "./scripts/bootstrap-sc64deployer.sh"
+
+[tasks.deploy]
+description = "Build and upload the ROM to a USB-connected SummerCart64"
+depends = ["build", "sc64deployer"]
+run = "./.build/bin/sc64deployer upload n64-2048.z64 --save-type none"
+
+[tasks.debug]
+description = "Open the SummerCart64 debug terminal"
+depends = ["sc64deployer"]
+run = "./.build/bin/sc64deployer debug"

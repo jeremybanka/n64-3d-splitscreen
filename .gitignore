@@ -1,0 +1,12 @@
+.build/
+.zig-cache/
+zig-cache/
+zig-out/
+build/
+*.elf
+*.map
+*.z64
+*.v64
+*.n64
+*.pak
+.DS_Store
