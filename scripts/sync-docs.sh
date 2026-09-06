@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+readonly PROJECT_ROOT
 readonly DOCS_DIR="$PROJECT_ROOT/docs"
-readonly TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/n64-3d-splitscreen-docs.XXXXXX")"
+TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/n64-3d-splitscreen-docs.XXXXXX")"
+readonly TEMP_DIR
 trap 'rm -rf "$TEMP_DIR"' EXIT
 
 mkdir -p "$DOCS_DIR/zig" "$DOCS_DIR/libdragon" "$DOCS_DIR/summercart64" "$DOCS_DIR/m64"

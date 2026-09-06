@@ -32,8 +32,9 @@ the separators.
 
 ## Build and run
 
-Zig 0.16.0, libdragon and Tiny3D revisions are pinned. Rust is only needed for the
-optional SummerCart64 deployment tool.
+Zig 0.16.0, libdragon and Tiny3D revisions are pinned. Mise also installs the CI
+linters. The pinned Rust toolchain is installed on demand by the optional
+SummerCart64 deployment task.
 
 ```sh
 mise trust
@@ -102,10 +103,29 @@ export script instead of regenerating over your edits.
 
 ## Verification and limits
 
-`make test` runs 12 host tests covering controller isolation, button edges,
+`mise run test` runs 12 host tests covering controller isolation, button edges,
 world bounds, view layouts, RSP packing/budgets, frame-slot isolation and
 animation bounds throughout all three benchmark phases. `mise run verify` checks the ROM
 header, O64 ELF, implicit runtime calls, and the reserved global pointer.
+
+GitHub Actions runs separate **Check** and **Test** workflows on main pushes and
+pull requests. Check runs Zig formatting, ShellCheck, Python syntax checks, and
+actionlint. Test runs the host suite in Debug and ReleaseSmall, then builds and
+verifies all four layouts plus validation and benchmark ROMs. Download those
+ROMs from the Test run's artifacts. Run the same commands locally:
+
+```sh
+mise run check
+mise run test
+mise run test -O ReleaseSmall
+mise run setup
+mise run test:rom
+```
+
+The N64 SDK is cached by its pinned bootstrap script; a cold compiler build can
+take 40–70 minutes. Host checks need no SDK or Blender. CI verifies builds and
+the ABI; emulator visuals and FPS still require an ares run. See
+[CI maintenance and coverage](docs/ci.md).
 
 See [the ares verification record](docs/verification.md) and
 [the Zig/libdragon architecture](docs/architecture.md), especially before

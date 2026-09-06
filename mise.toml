@@ -1,6 +1,7 @@
 [tools]
 zig = "0.16.0"
-rust = "1.98.0"
+actionlint = "1.7.12"
+shellcheck = "0.11.0"
 
 [env]
 N64_INST = "{{config_root}}/.build/libdragon"
@@ -13,6 +14,22 @@ run = "zig test src/scene.zig"
 [tasks.fmt]
 description = "Check Zig source formatting"
 run = "zig fmt --check src tools/patch_mips_abi.zig"
+
+[tasks.check]
+description = "Run the same formatting, script, and workflow checks as CI"
+depends = ["fmt", "check:scripts", "check:workflows"]
+
+[tasks."check:scripts"]
+description = "Lint shell scripts and check Python syntax without Blender"
+run = ["shellcheck scripts/*.sh", "python3 -m py_compile scripts/*.py"]
+
+[tasks."check:workflows"]
+description = "Validate GitHub Actions workflows"
+run = "actionlint"
+
+[tasks."test:rom"]
+description = "Build and verify all split-screen layouts and diagnostic ROMs"
+run = "./scripts/test-rom.sh"
 
 [tasks.setup]
 description = "Build the pinned libdragon SDK and Tiny3D RSP renderer"
@@ -43,6 +60,7 @@ run = "./scripts/sync-docs.sh"
 
 [tasks.sc64deployer]
 description = "Build the pinned SummerCart64 deployment utility"
+tools = { rust = "1.98.0" }
 run = "./scripts/bootstrap-sc64deployer.sh"
 
 [tasks.deploy]

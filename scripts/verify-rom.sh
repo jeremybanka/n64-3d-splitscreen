@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+readonly PROJECT_ROOT
 readonly ROM="$PROJECT_ROOT/n64-3d-splitscreen.z64"
 readonly ELF="$PROJECT_ROOT/build/n64-3d-splitscreen.elf"
 readonly TOOL_PREFIX="${N64_INST:?N64_INST must be set}/bin/mips64-elf-"

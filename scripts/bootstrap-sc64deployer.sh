@@ -3,7 +3,8 @@ set -euo pipefail
 
 readonly REPOSITORY="https://github.com/Polprzewodnikowy/SummerCart64.git"
 readonly REVISION="a1e7996d2cbece686820a5c785029c68514f17b0"
-readonly PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+readonly PROJECT_ROOT
 readonly SOURCE_DIR="$PROJECT_ROOT/.build/summercart64-src"
 readonly OUTPUT_DIR="$PROJECT_ROOT/.build/bin"
 

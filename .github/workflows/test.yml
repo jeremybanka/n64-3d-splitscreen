@@ -1,0 +1,80 @@
+name: Test
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  Zig:
+    name: Zig (${{ matrix.optimize }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        optimize: [Debug, ReleaseSmall]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - run: mise run test -O "${{ matrix.optimize }}"
+
+  ROM:
+    name: N64 ROM
+    runs-on: ubuntu-24.04
+    # Building GCC from source on an empty cache takes 40–70 minutes.
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+
+      - name: Restore N64 SDK
+        id: sdk
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .build/libdragon
+          # No fallback keys: a changed SDK pin must trigger a fresh build.
+          key: n64-sdk-ubuntu-24.04-${{ runner.arch }}-${{ hashFiles('scripts/bootstrap-libdragon.sh') }}
+
+      - name: Install SDK Build Dependencies
+        if: steps.sdk.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            build-essential bzip2 ca-certificates libgmp-dev libmpc-dev \
+            libmpfr-dev texinfo wget zlib1g-dev
+
+      - name: Build SDK and Tiny3D
+        run: mise run setup
+
+      - name: Save N64 SDK
+        if: steps.sdk.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .build/libdragon
+          key: ${{ steps.sdk.outputs.cache-primary-key }}
+
+      - name: Build and Verify ROM Variants
+        run: mise run test:rom
+
+      - name: Upload Verified ROMs
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: n64-roms-${{ github.sha }}
+          path: build/roms/
+          if-no-files-found: error
+          retention-days: 14
+

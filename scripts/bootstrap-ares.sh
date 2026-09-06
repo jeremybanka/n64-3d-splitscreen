@@ -4,7 +4,8 @@ set -euo pipefail
 readonly ARES_VERSION="147"
 readonly ARES_SHA256="9d8376b5dde4869bc0613efe3a544471e120b6e4f0b02ebe0c34295b034df147"
 readonly ARES_URL="https://github.com/ares-emulator/ares/releases/download/v${ARES_VERSION}/ares-macos-universal.zip"
-readonly PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+readonly PROJECT_ROOT
 readonly DOWNLOAD_DIR="$PROJECT_ROOT/.build/downloads"
 readonly ARCHIVE="$DOWNLOAD_DIR/ares-macos-universal-v${ARES_VERSION}.zip"
 readonly INSTALL_DIR="$PROJECT_ROOT/.build/emulators/ares-v${ARES_VERSION}"

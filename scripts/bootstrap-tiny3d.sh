@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-readonly PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+readonly PROJECT_ROOT
 readonly SOURCE_DIR="$PROJECT_ROOT/.build/tiny3d"
 # Last revision before Tiny3D adopted preview-only libdragon vector types.
 # Compatible with this template's pinned libdragon SDK; no GLTF tools needed.

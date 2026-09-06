@@ -13,6 +13,7 @@ fi
 # Any GP use here signals a compiler configuration/regression to inspect.
 disassembly="$("${prefix}objdump" -d "$object")"
 if grep -Eq '[[:space:],]gp([[:space:],)]|$)' <<< "$disassembly"; then
+    # shellcheck disable=SC2016 # $gp names the MIPS register, not a shell variable.
     echo 'Zig object uses $gp; compile with mips3+noabicalls and -fno-PIC.' >&2
     exit 1
 fi

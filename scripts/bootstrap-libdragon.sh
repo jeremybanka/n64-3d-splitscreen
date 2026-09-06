@@ -3,7 +3,8 @@ set -euo pipefail
 
 readonly LIBDRAGON_REPOSITORY="https://github.com/DragonMinded/libdragon.git"
 readonly LIBDRAGON_REVISION="494f1f586d3d6d5fc65b516a8ce29ccf42f85e15"
-readonly PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+readonly PROJECT_ROOT
 readonly SOURCE_DIR="$PROJECT_ROOT/.build/libdragon-src"
 readonly INSTALL_DIR="${N64_INST:-$PROJECT_ROOT/.build/libdragon}"
 
