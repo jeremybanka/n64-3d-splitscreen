@@ -15,8 +15,8 @@ description = "Check Zig source formatting"
 run = "zig fmt --check src tools/patch_mips_abi.zig"
 
 [tasks.setup]
-description = "Build the pinned libdragon SDK/toolchain locally"
-run = "./scripts/bootstrap-libdragon.sh"
+description = "Build the pinned libdragon SDK and Tiny3D RSP renderer"
+run = "./scripts/bootstrap-libdragon.sh && ./scripts/bootstrap-tiny3d.sh"
 
 [tasks.build]
 description = "Build the N64 ROM"

@@ -1,52 +1,199 @@
-RDPQ validation heartbeat: 4 views, 8 FPS, 2394 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2481 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2421 triangles
-RDPQ validation heartbeat: 4 views, 8 FPS, 2394 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2388 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2473 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2424 triangles
-RDPQ validation heartbeat: 4 views, 8 FPS, 2401 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2404 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2468 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2470 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2389 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2390 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2439 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2475 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2352 triangles
-RDPQ validation heartbeat: 4 views, 8 FPS, 2398 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2414 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2477 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2350 triangles
-RDPQ validation heartbeat: 4 views, 8 FPS, 2396 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2416 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2481 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2378 triangles
-RDPQ validation heartbeat: 4 views, 8 FPS, 2404 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2405 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2477 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2380 triangles
-RDPQ validation heartbeat: 4 views, 8 FPS, 2399 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2412 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2477 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2367 triangles
-RDPQ validation heartbeat: 4 views, 8 FPS, 2400 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2420 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2473 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2419 triangles
-RDPQ validation heartbeat: 4 views, 8 FPS, 2400 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2421 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2452 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2408 triangles
-RDPQ validation heartbeat: 4 views, 8 FPS, 2383 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2385 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2475 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2416 triangles
-RDPQ validation heartbeat: 4 views, 8 FPS, 2393 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2390 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2472 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2434 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2403 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2407 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2470 triangles
-RDPQ validation heartbeat: 4 views, 7 FPS, 2464 triangles
+PERF views=4 phase=0 fps=19 cpu_us=2886 submit_us=25814 triangles=4388
+PERF views=4 phase=0 fps=19 cpu_us=2263 submit_us=24273 triangles=4370
+PERF views=4 phase=0 fps=19 cpu_us=10704 submit_us=1986 triangles=4294
+PERF views=4 phase=0 fps=20 cpu_us=7130 submit_us=24739 triangles=4268
+PERF views=4 phase=0 fps=19 cpu_us=5042 submit_us=1966 triangles=4362
+PERF views=4 phase=0 fps=18 cpu_us=2299 submit_us=25624 triangles=4362
+PERF views=4 phase=0 fps=19 cpu_us=2558 submit_us=13135 triangles=4294
+PERF views=4 phase=0 fps=19 cpu_us=8841 submit_us=5030 triangles=4268
+PERF views=4 phase=0 fps=19 cpu_us=5684 submit_us=1921 triangles=4362
+PERF views=4 phase=0 fps=19 cpu_us=2954 submit_us=25304 triangles=4336
+PERF views=4 phase=0 fps=19 cpu_us=5254 submit_us=1936 triangles=4320
+PERF views=4 phase=0 fps=19 cpu_us=5392 submit_us=1972 triangles=4294
+PERF views=4 phase=0 fps=19 cpu_us=5543 submit_us=1971 triangles=4422
+PERF views=4 phase=0 fps=19 cpu_us=7441 submit_us=25489 triangles=4336
+PERF views=4 phase=1 fps=19 cpu_us=8599 submit_us=13217 triangles=4164
+PERF views=4 phase=1 fps=23 cpu_us=2281 submit_us=11752 triangles=4306
+PERF views=4 phase=1 fps=20 cpu_us=2516 submit_us=25248 triangles=4138
+PERF views=4 phase=1 fps=24 cpu_us=2519 submit_us=22636 triangles=4388
+PERF views=4 phase=1 fps=19 cpu_us=7958 submit_us=23612 triangles=4170
+PERF views=4 phase=1 fps=21 cpu_us=2674 submit_us=20685 triangles=4302
+PERF views=4 phase=1 fps=20 cpu_us=10114 submit_us=3412 triangles=4276
+PERF views=4 phase=1 fps=22 cpu_us=2283 submit_us=10288 triangles=4328
+PERF views=4 phase=1 fps=20 cpu_us=2514 submit_us=12994 triangles=4256
+PERF views=4 phase=1 fps=21 cpu_us=2249 submit_us=9931 triangles=4098
+PERF views=4 phase=1 fps=21 cpu_us=2562 submit_us=12669 triangles=4416
+PERF views=4 phase=1 fps=20 cpu_us=2255 submit_us=11747 triangles=4102
+PERF views=4 phase=1 fps=24 cpu_us=2865 submit_us=25583 triangles=4384
+PERF views=4 phase=1 fps=19 cpu_us=8489 submit_us=25483 triangles=4190
+PERF views=4 phase=1 fps=23 cpu_us=8957 submit_us=4529 triangles=4358
+PERF views=4 phase=1 fps=22 cpu_us=4483 submit_us=8346 triangles=2864
+PERF views=4 phase=1 fps=31 cpu_us=2515 submit_us=10410 triangles=4300
+PERF views=4 phase=1 fps=21 cpu_us=4833 submit_us=8622 triangles=2852
+PERF views=4 phase=1 fps=32 cpu_us=2541 submit_us=10269 triangles=3112
+PERF views=4 phase=2 fps=21 cpu_us=2558 submit_us=24697 triangles=4216
+PERF views=4 phase=2 fps=19 cpu_us=2247 submit_us=12203 triangles=4190
+PERF views=4 phase=2 fps=20 cpu_us=8473 submit_us=12757 triangles=4216
+PERF views=4 phase=2 fps=20 cpu_us=2478 submit_us=24934 triangles=4138
+PERF views=4 phase=2 fps=19 cpu_us=2247 submit_us=12162 triangles=4216
+PERF views=4 phase=2 fps=20 cpu_us=7693 submit_us=24383 triangles=4112
+PERF views=4 phase=2 fps=20 cpu_us=2700 submit_us=25785 triangles=4270
+PERF views=4 phase=2 fps=19 cpu_us=2211 submit_us=11859 triangles=4184
+PERF views=4 phase=2 fps=20 cpu_us=8901 submit_us=27439 triangles=4328
+PERF views=4 phase=2 fps=20 cpu_us=2496 submit_us=25390 triangles=4276
+PERF views=4 phase=2 fps=20 cpu_us=2215 submit_us=12072 triangles=4328
+PERF views=4 phase=2 fps=20 cpu_us=7797 submit_us=24783 triangles=4302
+PERF views=4 phase=2 fps=20 cpu_us=2476 submit_us=25198 triangles=4224
+PERF views=4 phase=2 fps=19 cpu_us=2238 submit_us=11890 triangles=4242
+PERF views=4 phase=2 fps=20 cpu_us=8038 submit_us=23936 triangles=4216
+PERF views=4 phase=2 fps=20 cpu_us=2205 submit_us=11803 triangles=4216
+PERF views=4 phase=2 fps=20 cpu_us=2232 submit_us=12179 triangles=4190
+PERF views=4 phase=2 fps=20 cpu_us=2451 submit_us=24814 triangles=4216
+PERF views=4 phase=2 fps=20 cpu_us=11204 submit_us=1902 triangles=4164
+PERF views=4 phase=2 fps=19 cpu_us=2247 submit_us=11617 triangles=4164
+PERF views=4 phase=0 fps=20 cpu_us=11686 submit_us=1967 triangles=4268
+PERF views=4 phase=0 fps=19 cpu_us=2882 submit_us=25049 triangles=4362
+PERF views=4 phase=0 fps=19 cpu_us=11792 submit_us=1950 triangles=4362
+PERF views=4 phase=0 fps=19 cpu_us=2549 submit_us=24673 triangles=4294
+PERF views=4 phase=0 fps=19 cpu_us=2512 submit_us=24931 triangles=4294
+PERF views=4 phase=0 fps=19 cpu_us=7585 submit_us=25361 triangles=4422
+PERF views=4 phase=0 fps=19 cpu_us=2249 submit_us=12553 triangles=4336
+PERF views=4 phase=0 fps=19 cpu_us=7073 submit_us=24398 triangles=4294
+PERF views=4 phase=0 fps=19 cpu_us=2257 submit_us=12320 triangles=4294
+PERF views=4 phase=0 fps=19 cpu_us=2262 submit_us=12391 triangles=4396
+PERF views=4 phase=0 fps=19 cpu_us=7408 submit_us=14117 triangles=4362
+PERF views=4 phase=0 fps=19 cpu_us=2254 submit_us=12051 triangles=4320
+PERF views=4 phase=0 fps=20 cpu_us=7614 submit_us=13543 triangles=4284
+PERF views=4 phase=0 fps=19 cpu_us=2285 submit_us=12361 triangles=4338
+PERF views=4 phase=0 fps=19 cpu_us=2266 submit_us=26561 triangles=4354
+PERF views=4 phase=0 fps=18 cpu_us=2257 submit_us=24565 triangles=4388
+PERF views=4 phase=0 fps=19 cpu_us=8974 submit_us=4709 triangles=4336
+PERF views=4 phase=0 fps=19 cpu_us=2264 submit_us=11897 triangles=4310
+PERF views=4 phase=0 fps=19 cpu_us=3018 submit_us=26195 triangles=4388
+PERF views=4 phase=1 fps=19 cpu_us=10302 submit_us=3148 triangles=4346
+PERF views=4 phase=1 fps=20 cpu_us=6620 submit_us=3756 triangles=2506
+PERF views=4 phase=1 fps=22 cpu_us=9048 submit_us=4228 triangles=4248
+PERF views=4 phase=1 fps=22 cpu_us=6541 submit_us=4496 triangles=3430
+PERF views=4 phase=1 fps=22 cpu_us=2580 submit_us=25170 triangles=4328
+PERF views=4 phase=1 fps=20 cpu_us=10361 submit_us=1949 triangles=4160
+PERF views=4 phase=1 fps=21 cpu_us=2518 submit_us=25459 triangles=4164
+PERF views=4 phase=1 fps=21 cpu_us=2313 submit_us=10660 triangles=4184
+PERF views=4 phase=1 fps=21 cpu_us=9183 submit_us=4582 triangles=4214
+PERF views=4 phase=1 fps=21 cpu_us=2265 submit_us=25073 triangles=4282
+PERF views=4 phase=1 fps=22 cpu_us=2511 submit_us=23047 triangles=3898
+PERF views=4 phase=1 fps=20 cpu_us=8103 submit_us=25113 triangles=4332
+PERF views=4 phase=1 fps=22 cpu_us=8090 submit_us=3805 triangles=3842
+PERF views=4 phase=1 fps=21 cpu_us=2514 submit_us=25572 triangles=4358
+PERF views=4 phase=1 fps=21 cpu_us=5821 submit_us=10023 triangles=3018
+PERF views=4 phase=1 fps=21 cpu_us=2288 submit_us=11797 triangles=4204
+PERF views=4 phase=1 fps=30 cpu_us=6350 submit_us=16693 triangles=2474
+PERF views=4 phase=1 fps=23 cpu_us=11215 submit_us=1941 triangles=4246
+PERF views=4 phase=1 fps=28 cpu_us=2496 submit_us=15895 triangles=2442
+PERF views=4 phase=1 fps=25 cpu_us=2253 submit_us=11333 triangles=4390
+PERF views=4 phase=2 fps=20 cpu_us=2218 submit_us=12181 triangles=4158
+PERF views=4 phase=2 fps=20 cpu_us=2490 submit_us=12849 triangles=4190
+PERF views=4 phase=2 fps=20 cpu_us=2489 submit_us=24725 triangles=4216
+PERF views=4 phase=2 fps=19 cpu_us=2288 submit_us=12447 triangles=4164
+PERF views=4 phase=2 fps=20 cpu_us=7392 submit_us=24323 triangles=4190
+PERF views=4 phase=2 fps=20 cpu_us=2504 submit_us=25398 triangles=4164
+PERF views=4 phase=2 fps=19 cpu_us=2206 submit_us=11333 triangles=4164
+PERF views=4 phase=2 fps=20 cpu_us=7900 submit_us=24300 triangles=4184
+PERF views=4 phase=2 fps=20 cpu_us=2868 submit_us=24287 triangles=4218
+PERF views=4 phase=2 fps=19 cpu_us=2209 submit_us=12262 triangles=4302
+PERF views=4 phase=2 fps=20 cpu_us=8170 submit_us=24682 triangles=4328
+PERF views=4 phase=2 fps=20 cpu_us=2524 submit_us=25461 triangles=4302
+PERF views=4 phase=2 fps=19 cpu_us=2210 submit_us=11753 triangles=4302
+PERF views=4 phase=2 fps=20 cpu_us=7948 submit_us=24107 triangles=4216
+PERF views=4 phase=2 fps=20 cpu_us=2234 submit_us=12044 triangles=4218
+PERF views=4 phase=2 fps=19 cpu_us=2241 submit_us=11702 triangles=4126
+PERF views=4 phase=2 fps=20 cpu_us=7793 submit_us=23929 triangles=4242
+PERF views=4 phase=2 fps=20 cpu_us=11036 submit_us=1911 triangles=4190
+PERF views=4 phase=2 fps=19 cpu_us=2208 submit_us=12401 triangles=4216
+PERF views=4 phase=0 fps=19 cpu_us=3970 submit_us=2015 triangles=4276
+PERF views=4 phase=0 fps=19 cpu_us=2539 submit_us=25177 triangles=4396
+PERF views=4 phase=0 fps=19 cpu_us=10743 submit_us=1957 triangles=4362
+PERF views=4 phase=0 fps=19 cpu_us=2491 submit_us=13301 triangles=4362
+PERF views=4 phase=0 fps=20 cpu_us=2258 submit_us=11750 triangles=4284
+PERF views=4 phase=0 fps=19 cpu_us=3146 submit_us=1956 triangles=4286
+PERF views=4 phase=0 fps=19 cpu_us=7363 submit_us=25310 triangles=4380
+PERF views=4 phase=0 fps=19 cpu_us=2268 submit_us=12495 triangles=4418
+PERF views=4 phase=0 fps=19 cpu_us=2266 submit_us=12006 triangles=4336
+PERF views=4 phase=0 fps=20 cpu_us=7330 submit_us=24705 triangles=4284
+PERF views=4 phase=0 fps=19 cpu_us=2269 submit_us=12638 triangles=4388
+PERF views=4 phase=0 fps=19 cpu_us=7418 submit_us=13893 triangles=4370
+PERF views=4 phase=0 fps=19 cpu_us=2758 submit_us=13358 triangles=4320
+PERF views=4 phase=0 fps=19 cpu_us=7440 submit_us=13179 triangles=4268
+PERF views=4 phase=0 fps=19 cpu_us=2353 submit_us=12375 triangles=4362
+PERF views=4 phase=0 fps=19 cpu_us=2907 submit_us=25287 triangles=4370
+PERF views=4 phase=0 fps=19 cpu_us=5040 submit_us=1932 triangles=4294
+PERF views=4 phase=0 fps=19 cpu_us=5289 submit_us=1974 triangles=4294
+PERF views=4 phase=0 fps=19 cpu_us=2331 submit_us=11930 triangles=4362
+PERF views=4 phase=0 fps=19 cpu_us=7333 submit_us=13631 triangles=4336
+PERF views=4 phase=1 fps=19 cpu_us=9658 submit_us=3710 triangles=4250
+PERF views=4 phase=1 fps=23 cpu_us=2256 submit_us=11995 triangles=4466
+PERF views=4 phase=1 fps=20 cpu_us=2515 submit_us=24796 triangles=4174
+PERF views=4 phase=1 fps=23 cpu_us=7797 submit_us=25074 triangles=4436
+PERF views=4 phase=1 fps=19 cpu_us=9069 submit_us=4234 triangles=4144
+PERF views=4 phase=1 fps=21 cpu_us=2313 submit_us=10456 triangles=4216
+PERF views=4 phase=1 fps=21 cpu_us=2267 submit_us=33186 triangles=3730
+PERF views=4 phase=1 fps=22 cpu_us=6251 submit_us=22857 triangles=3782
+PERF views=4 phase=1 fps=20 cpu_us=10878 submit_us=1949 triangles=3730
+PERF views=4 phase=1 fps=22 cpu_us=10064 submit_us=1947 triangles=4264
+PERF views=4 phase=1 fps=20 cpu_us=9675 submit_us=3717 triangles=4298
+PERF views=4 phase=1 fps=20 cpu_us=5768 submit_us=19976 triangles=4206
+PERF views=4 phase=1 fps=23 cpu_us=8151 submit_us=24482 triangles=4410
+PERF views=4 phase=1 fps=20 cpu_us=2285 submit_us=11201 triangles=4276
+PERF views=4 phase=1 fps=23 cpu_us=2937 submit_us=26525 triangles=4336
+PERF views=4 phase=1 fps=25 cpu_us=7992 submit_us=1936 triangles=2784
+PERF views=4 phase=1 fps=28 cpu_us=3028 submit_us=25731 triangles=4476
+PERF views=4 phase=1 fps=24 cpu_us=7729 submit_us=1970 triangles=2976
+PERF views=4 phase=1 fps=29 cpu_us=9984 submit_us=3728 triangles=4384
+PERF views=4 phase=2 fps=20 cpu_us=2495 submit_us=13153 triangles=4218
+PERF views=4 phase=2 fps=20 cpu_us=8021 submit_us=24937 triangles=4328
+PERF views=4 phase=2 fps=20 cpu_us=10362 submit_us=3390 triangles=4328
+PERF views=4 phase=2 fps=19 cpu_us=2206 submit_us=12100 triangles=4276
+PERF views=4 phase=2 fps=20 cpu_us=7910 submit_us=24305 triangles=4328
+PERF views=4 phase=2 fps=20 cpu_us=2462 submit_us=25568 triangles=4216
+PERF views=4 phase=2 fps=19 cpu_us=2287 submit_us=11704 triangles=4276
+PERF views=4 phase=2 fps=20 cpu_us=7692 submit_us=24185 triangles=4184
+PERF views=4 phase=2 fps=20 cpu_us=11296 submit_us=1938 triangles=4216
+PERF views=4 phase=2 fps=20 cpu_us=2248 submit_us=12938 triangles=4190
+PERF views=4 phase=2 fps=20 cpu_us=7689 submit_us=23467 triangles=4216
+PERF views=4 phase=2 fps=20 cpu_us=10216 submit_us=3182 triangles=4138
+PERF views=4 phase=2 fps=20 cpu_us=2522 submit_us=12870 triangles=4190
+PERF views=4 phase=2 fps=20 cpu_us=7572 submit_us=24464 triangles=4138
+PERF views=4 phase=2 fps=20 cpu_us=2208 submit_us=12595 triangles=4244
+PERF views=4 phase=2 fps=19 cpu_us=2208 submit_us=12788 triangles=4268
+PERF views=4 phase=2 fps=20 cpu_us=2239 submit_us=12114 triangles=4328
+PERF views=4 phase=2 fps=20 cpu_us=2673 submit_us=25262 triangles=4302
+PERF views=4 phase=2 fps=20 cpu_us=2747 submit_us=25137 triangles=4328
+PERF views=4 phase=2 fps=19 cpu_us=2215 submit_us=12270 triangles=4184
+PERF views=4 phase=0 fps=20 cpu_us=5261 submit_us=1994 triangles=4268
+PERF views=4 phase=0 fps=18 cpu_us=2916 submit_us=1965 triangles=4388
+PERF views=4 phase=0 fps=19 cpu_us=7844 submit_us=25430 triangles=4370
+PERF views=4 phase=0 fps=19 cpu_us=2498 submit_us=13123 triangles=4294
+PERF views=4 phase=0 fps=19 cpu_us=2288 submit_us=12022 triangles=4268
+PERF views=4 phase=0 fps=19 cpu_us=8011 submit_us=25597 triangles=4362
+PERF views=4 phase=0 fps=19 cpu_us=5268 submit_us=1955 triangles=4362
+PERF views=4 phase=0 fps=19 cpu_us=2256 submit_us=11923 triangles=4294
+PERF views=4 phase=0 fps=19 cpu_us=10914 submit_us=2830 triangles=4294
+PERF views=4 phase=0 fps=19 cpu_us=8003 submit_us=25637 triangles=4414
+PERF views=4 phase=0 fps=18 cpu_us=3980 submit_us=1930 triangles=4336
+PERF views=4 phase=0 fps=19 cpu_us=7528 submit_us=24225 triangles=4294
+PERF views=4 phase=0 fps=19 cpu_us=7629 submit_us=24718 triangles=4294
+PERF views=4 phase=0 fps=19 cpu_us=7140 submit_us=25309 triangles=4396
+PERF views=4 phase=0 fps=19 cpu_us=5805 submit_us=1965 triangles=4336
+PERF views=4 phase=0 fps=19 cpu_us=7381 submit_us=13154 triangles=4320
+PERF views=4 phase=0 fps=19 cpu_us=2264 submit_us=11743 triangles=4276
+PERF views=4 phase=0 fps=19 cpu_us=3144 submit_us=2011 triangles=4338
+PERF views=4 phase=0 fps=19 cpu_us=7353 submit_us=24922 triangles=4354
+PERF views=4 phase=1 fps=19 cpu_us=2282 submit_us=12907 triangles=4302
+PERF views=4 phase=1 fps=23 cpu_us=2284 submit_us=9696 triangles=4336
+PERF views=4 phase=1 fps=20 cpu_us=8047 submit_us=24270 triangles=4328
+PERF views=4 phase=1 fps=23 cpu_us=2263 submit_us=25846 triangles=3822
+PERF views=4 phase=1 fps=20 cpu_us=9713 submit_us=3830 triangles=4328
+PERF views=4 phase=1 fps=21 cpu_us=2589 submit_us=23415 triangles=4148
+PERF views=4 phase=1 fps=20 cpu_us=9864 submit_us=3397 triangles=4190
+PERF views=4 phase=1 fps=22 cpu_us=2284 submit_us=21774 triangles=4168
+PERF views=4 phase=1 fps=21 cpu_us=7855 submit_us=23574 triangles=4164
+PERF views=4 phase=1 fps=21 cpu_us=2317 submit_us=11309 triangles=4160

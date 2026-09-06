@@ -83,7 +83,7 @@ pub fn step() void {
         if (p.moving) p.walk = @mod(p.walk + 9, 256);
         if ((p.input & (1 << 16) != 0 or (tour and ticks % 300 == i * 60)) and p.pos.y == 0) p.velocity_y = 57;
         // Jump is edge-triggered, even if a frame contains multiple simulation steps.
-        p.input &= ~@as(u32, 1 << 16);
+        p.input &= ~@as(u32, (1 << 16) | (1 << 19));
         p.pos.y += p.velocity_y;
         p.velocity_y -= 3;
         if (p.pos.y <= 0) {
@@ -118,11 +118,12 @@ pub fn step() void {
 export fn game_reset(_: u32) u32 {
     reset();
     view_count = 4;
+    benchmark_ticks = 0;
     return 0;
 }
 export fn game_input(word: u32) u32 {
     const p = &players[word >> 30];
-    p.input = (word & 0x3fffffff) | (p.input & (1 << 16));
+    p.input = (word & 0x3fffffff) | (p.input & ((1 << 16) | (1 << 19)));
     return 0;
 }
 export fn game_tick(count: u32) u32 {
@@ -191,4 +192,51 @@ test "jump press survives a render frame with no simulation step" {
     _ = game_input(0);
     step();
     try std.testing.expect(players[0].pos.y > 0);
+}
+
+// Deterministic four-controller workload for emulator performance checks.
+// Three 20-second phases: shared tour, independent movement/orbit, close quarters.
+var benchmark_ticks: u32 = 0;
+pub export fn game_benchmark(count: u32) u32 {
+    for (0..@min(count, 15)) |_| {
+        const phase = (benchmark_ticks / 1200) % 3;
+        if (benchmark_ticks % 1200 == 0) {
+            reset();
+            view_count = 4;
+            if (phase == 2) for (&players) |*p| {
+                p.pos.x = @divTrunc(p.pos.x, 3);
+                p.pos.z = @divTrunc(p.pos.z, 3);
+            };
+        }
+        tour = phase == 0;
+        for (0..4) |i| {
+            const time = benchmark_ticks % 1200;
+            var word: u32 = @as(u32, @intCast(i)) << 30;
+            if (phase == 1) {
+                // All ports move and turn independently, including at world bounds.
+                const x: i8 = if ((time / 300 + i) % 2 == 0) 55 else -55;
+                word |= @as(u8, @bitCast(x));
+                word |= 80 << 8;
+                word |= @as(u32, 1) << (if (i % 2 == 0) @as(u5, 17) else 18);
+            } else if (phase == 2) {
+                word |= 1 << 18;
+            }
+            if (time % 120 == i * 20) word |= 1 << 16;
+            _ = game_input(word);
+        }
+        step();
+        benchmark_ticks +%= 1;
+    }
+    return (benchmark_ticks / 1200) % 3;
+}
+
+test "recenter press survives a frame with no simulation step" {
+    reset();
+    players[0].camera = 0;
+    players[0].yaw = 80;
+    _ = game_input(1 << 19);
+    _ = game_tick(0);
+    _ = game_input(0);
+    step();
+    try std.testing.expectEqual(@as(i32, 80), players[0].camera);
 }

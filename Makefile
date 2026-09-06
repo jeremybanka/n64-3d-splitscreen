@@ -3,6 +3,7 @@ INITIAL_VIEWS ?= 4
 AUTOTOUR ?= 0
 PROFILE ?= 0
 VALIDATE ?= 0
+BENCHMARK ?= 0
 N64_INST ?= $(CURDIR)/.build/libdragon
 
 ROM := n64-3d-splitscreen
@@ -17,13 +18,24 @@ ifeq ($(wildcard $(N64_INST)/include/n64.mk),)
 endif
 
 include $(N64_INST)/include/n64.mk
+TINY3D_DIR ?= $(CURDIR)/.build/tiny3d
+ifeq ($(wildcard $(TINY3D_DIR)/t3d.mk),)
+  $(error Tiny3D is not installed; run `mise run setup` or `./scripts/bootstrap-tiny3d.sh`)
+endif
+include $(TINY3D_DIR)/t3d.mk
+# Link it as an explicit prerequisite so rebuilding the library relinks the ROM.
+N64_LDFLAGS := $(filter-out %/libt3d.a,$(N64_LDFLAGS))
+
+$(TINY3D_DIR)/build/libt3d.a:
+	$(MAKE) -C $(TINY3D_DIR)
+
 
 all: $(ROM).z64
 .PHONY: all test clean FORCE models
 
 OBJS := $(BUILD_DIR)/main.o $(BUILD_DIR)/scene.o
 
-$(BUILD_DIR)/$(ROM).elf: $(OBJS)
+$(BUILD_DIR)/$(ROM).elf: $(OBJS) $(TINY3D_DIR)/build/libt3d.a
 
 $(ROM).z64: N64_ROM_TITLE = "BUNNY MEADOW"
 $(ROM).z64: N64_ROM_REGIONFREE = true
@@ -33,11 +45,11 @@ $(ROM).z64: N64_ROM_CONTROLLER2 = n64
 $(ROM).z64: N64_ROM_CONTROLLER3 = n64
 $(ROM).z64: N64_ROM_CONTROLLER4 = n64
 
-CFLAGS += -DINITIAL_VIEWS=$(INITIAL_VIEWS) -DAUTOTOUR=$(AUTOTOUR) -DPROFILE=$(PROFILE)
+CFLAGS += -DINITIAL_VIEWS=$(INITIAL_VIEWS) -DAUTOTOUR=$(AUTOTOUR) -DPROFILE=$(PROFILE) -DBENCHMARK=$(BENCHMARK)
 
 $(BUILD_DIR)/settings: FORCE
 	@mkdir -p $(BUILD_DIR)
-	@echo '$(INITIAL_VIEWS) $(AUTOTOUR) $(PROFILE) $(VALIDATE)' > $@.tmp
+	@echo '$(INITIAL_VIEWS) $(AUTOTOUR) $(PROFILE) $(VALIDATE) $(BENCHMARK)' > $@.tmp
 	@cmp -s $@.tmp $@ || mv $@.tmp $@
 	@rm -f $@.tmp
 

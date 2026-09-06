@@ -3,6 +3,8 @@
 A Zig-first Nintendo 64 template with one shared 3D world, four little rabbit
 characters, and **1–4 independent third-person cameras**. Triangles, depth
 buffering, antialiasing, clears, and text are drawn by **libdragon RDPQ**.
+**Tiny3D runs transforms and clipping on the RSP**, sustaining 40+ FPS in the
+four-player emulator benchmark. Gameplay and mesh preparation remain in Zig.
 There is no CPU framebuffer rasterizer.
 
 <img src="docs/screenshots/4-players.png" width="640" height="480" alt="Four players in the same 3D meadow">
@@ -30,13 +32,13 @@ the separators.
 
 ## Build and run
 
-Zig 0.16.0 and the libdragon revision are pinned. Rust is only needed for the
+Zig 0.16.0, libdragon and Tiny3D revisions are pinned. Rust is only needed for the
 optional SummerCart64 deployment tool.
 
 ```sh
 mise trust
 mise install
-mise run setup       # first SDK build can take a long time
+mise run setup       # SDK + Tiny3D; first SDK build can take a long time
 mise run build
 mise run verify
 mise run emulate     # pinned ares v147, OpenGL 3.2, homebrew mode
@@ -45,7 +47,8 @@ mise run emulate     # pinned ares v147, OpenGL 3.2, homebrew mode
 Output: **`n64-3d-splitscreen.z64`**. Normal builds use the checked-in rabbit
 mesh and do not require Blender. If the SDK is already installed, set
 `N64_INST=/path/to/libdragon` and run `make` with Zig on `PATH`, or reuse it
-at `.build/libdragon`.
+at `.build/libdragon`. Then run `./scripts/bootstrap-tiny3d.sh` once to add
+the local RSP library. No additional Blender plugins or GLTF tools are needed.
 
 The emulator helper uses the project's pinned ares installation. The
 installed v148 Metal backend flickered on the development machine; v147's
@@ -60,6 +63,7 @@ make INITIAL_VIEWS=1           # 1, 2, 3, or 4
 make INITIAL_VIEWS=3 AUTOTOUR=1 # animated demonstration
 make PROFILE=1                # scene/submission times and triangle count
 make VALIDATE=1               # libdragon RDP command validation (slow)
+make BENCHMARK=1              # three repeatable four-controller workloads
 make                          # restores the normal four-player configuration
 ```
 
@@ -71,11 +75,10 @@ rendering, with bounded catch-up after a pause.
 
 - `src/game.zig`: player state, input packing, movement, hopping, separation,
   camera yaw, tour, and view count. Replace or extend these rules.
-- `src/scene.zig`: viewport layouts, cameras, fixed-point transforms,
-  perspective projection, clipping, back-face culling, static-world cache,
-  world primitives, and animated rabbit instances.
-- `src/main.c`: the small libdragon adapter for controllers, timing, RDPQ
-  submission, font drawing, depth-buffer attachment, and presentation.
+- `src/scene.zig`: viewport layouts, camera inputs, indexed RSP batches,
+  spatial scenery groups, shared rabbit poses, and visibility bounds.
+- `src/main.c`: libdragon/Tiny3D adapter for controllers, timing, camera
+  matrices, visibility tests, RSP command blocks, depth and presentation.
 - `src/bridge.h`: the explicit fixed-width ABI/data contract.
 - `scripts/make-rabbit.py`: reproducible Blender model and mesh exporter.
 - `assets/rabbit.blend`: editable character and studio scene.
@@ -99,16 +102,22 @@ export script instead of regenerating over your edits.
 
 ## Verification and limits
 
-`make test` runs 12 host tests covering controller isolation, jumping,
-world bounds, view layouts, projection/clipping, winding, cache invalidation,
-and an animated tour through every layout. `mise run verify` checks the ROM
+`make test` runs 12 host tests covering controller isolation, button edges,
+world bounds, view layouts, RSP packing/budgets, frame-slot isolation and
+animation bounds throughout all three benchmark phases. `mise run verify` checks the ROM
 header, O64 ELF, implicit runtime calls, and the reserved global pointer.
 
 See [the ares verification record](docs/verification.md) and
 [the Zig/libdragon architecture](docs/architecture.md), especially before
-changing compiler flags or the ABI bridge. RSP triangle setup and RDP drawing
-are hardware accelerated; transforms and clipping run on the CPU in Zig.
-This is a small working foundation, not a high-throughput 3D engine.
+changing compiler flags or the ABI bridge. Transforms, clipping, triangle setup and rasterization now run on the N64
+coprocessors. The final four-player stress run sustained **51–60 FPS across
+115 one-second samples**; see the verification record for measurements and pictures.
+
+To check a captured benchmark log:
+
+```sh
+python3 scripts/check-performance.py path/to/ares-isviewer.log
+```
 
 The framebuffer is 320×240 at 16 bpp, triple buffered, with one shared 16-bit
 Z surface. No Expansion Pak is required by the allocation budget. Real N64,

@@ -1,84 +1,126 @@
 # Emulator verification — 2026-09-06
 
-Built with Zig 0.16.0 and the pinned libdragon SDK. Loaded and inspected in
-ares v147 through Computer Use, using the OpenGL backend, NTSC and homebrew
-mode. The emulator reported approximately 60 video interrupts per second;
-the game's FPS counter measures completed game frames separately.
+The initial template was checked in as `7d8ed1a` before optimization. That
+renderer reached 12 FPS at rest and approximately 8 FPS with all four cameras
+moving. Its measured CPU geometry/submission times were 68/51 ms in motion.
 
-## Layouts
+The optimized renderer retains the same Blender rabbit mesh, meadow, four
+actors, controls and split layouts. Tiny3D now handles transforms, clipping
+and triangle setup on the RSP; RDPQ still controls the RDP. Shared pose data,
+recorded draw commands and per-camera visibility culling remove the previous
+CPU bottleneck.
 
-All layouts show one shared meadow and the same four rabbits, with different
-camera positions. The jersey colors identify the controller/player across
-views. Nearer rabbits occlude farther objects through the RDP depth buffer.
-The three-player arrangement fills the screen with one wide view above two
-smaller views.
+## Repeatable four-player performance test
 
-| Visible cameras | Observed FPS at the starting scene |
-| --- | --- |
-| 1 | 49 |
-| 2 | 22 |
-| 3 | 16 |
-| 4 | 12 |
+Build with `make BENCHMARK=1`, reload in ares v147, and record Cartridge
+ISViewer output through Tools → Tracer → Log to File. The workload loops
+through three 20-second phases with all four views active:
 
-These are approximate observations, not hardware benchmarks or guaranteed
-frame rates. Moving cameras regenerate scenery instead of using its cache;
-the four-player tour is slower. Further CPU transform/submission optimization
-or a batched RSP transform backend is needed for a faster game.
+1. All four rabbits walk, hop and rotate their cameras around the meadow.
+2. All four packed controller ports move and orbit independently.
+3. Four rabbits hop close together while all cameras orbit them.
 
-The following files are unedited ares captures. Ares saves the VI output at
-640×240 with non-square pixels; the HTML display dimensions restore the
-intended 4:3 aspect ratio without changing the captured files.
+The first full optimized run, with the profile overlay enabled, recorded
+110 one-second samples: **49–59 FPS**, with every sample above 40 FPS.
+The final build recorded **115 one-second samples, all at 51–60 FPS**.
+See the [raw performance capture](performance.txt).
 
-### One player
+| Four-player workload | Samples | Minimum–maximum FPS | Mean FPS |
+| --- | ---: | ---: | ---: |
+| Shared tour | 39 | 51–55 | 53.0 |
+| Independent movement/orbit | 40 | 53–60 | 56.6 |
+| Close-quarter hopping | 36 | 54–56 | 55.1 |
+
+Benchmark ROM SHA-256:
+`5412acf84a18b6d2746f0bada1106a384c7ded379ff07fb9ffd180fe4a049817`.
+
+```sh
+python3 scripts/check-performance.py docs/performance.txt
+```
+
+The checker requires four views throughout, at least 15 complete samples
+from each phase, no diagnostic errors, and a minimum of 40 FPS in every sample.
+These are render-loop measurements using the emulated N64 clock, not a real
+console benchmark. Ares's separate VPS counter measures video interrupts on
+the host; it was generally in the low-to-mid 50s during the stress screenshots.
+At that emulator speed, the final 51+ game FPS still represents over 40
+rendered frames per wall-clock second. Menus, debugger pauses, host load and
+screenshot capture can temporarily affect emulator speed.
+
+The framebuffer remains 320×240 with standard antialiasing and 16-bit depth.
+No view or rabbit is updated at a reduced frequency to obtain these results.
+The CPU pose update is approximately 2–3 ms; submission timing includes queue
+backpressure while the RSP is busy.
+
+## Pictures taken during optimization
+
+These are unedited ares screenshots. The emulator saves the VI output at
+640×240 with non-square pixels; the HTML display dimensions restore 4:3
+without altering the image files.
+
+### Four players in close quarters — 52 FPS
+
+<img src="screenshots/optimization/close-quarters-52fps.png" width="640" height="480" alt="Four rabbits hopping together at 52 FPS">
+
+### Independent controller movement — 56 FPS
+
+<img src="screenshots/optimization/independent-movement-56fps.png" width="640" height="480" alt="Independent movement and hopping in all four cameras at 56 FPS">
+
+### Benchmark before the path fix — 55 FPS
+
+<img src="screenshots/optimization/final-benchmark-55fps.png" width="640" height="480" alt="Final four-player close-quarter benchmark at 55 FPS">
+
+### One-player layout — 59 FPS
 
 <img src="screenshots/1-player.png" width="640" height="480" alt="One full-screen camera with all four rabbits">
 
-### Two players
+### Two-player layout — 59 FPS
 
 <img src="screenshots/2-players.png" width="640" height="480" alt="Two horizontal views into the same meadow">
 
-### Three players
+### Three-player layout — 59 FPS
 
 <img src="screenshots/3-players.png" width="640" height="480" alt="One wide view and two smaller views">
 
-### Four players
+### Default four-player layout — 55 FPS
 
-<img src="screenshots/4-players.png" width="640" height="480" alt="Four views with differently colored player rabbits">
+<img src="screenshots/4-players.png" width="640" height="480" alt="Four different perspectives on the same meadow">
 
-## Motion and RDP validation
+### Final path mesh under four-player motion — 51 FPS
 
-Built with `make VALIDATE=1 AUTOTOUR=1`, then observed the rabbits walking,
-turning and hopping around the central carrot from all four cameras.
-ISViewer tracing recorded 52 one-second validation heartbeats with no
-`RDPQ_VALIDATION` warnings/errors and no triangle-capacity messages.
-The [captured log](rdpq-validation.txt) records 7–8 FPS while validation is
-enabled, with roughly 2,400 submitted triangles across all four views.
+<img src="screenshots/optimization/path-fixed-tour-51fps.png" width="640" height="480" alt="Four moving players with the corrected path at 51 FPS">
 
-<img src="screenshots/tour.png" width="640" height="480" alt="Animated four-player tour during RDPQ validation">
+The [two-player picture](screenshots/optimization/path-before-fix.png) exposed Z fighting between overlapping grass and
+path discs. The final path is a non-overlapping annulus above the meadow;
+the corrected layout pictures show a clean ring without the stippled streaks.
 
-Validation caught an RDP fill-mode scissor requirement during development:
-the right views now start at X=160, and their separator is drawn afterward.
-A host test checks the required four-pixel alignment for every layout.
+## Hardware command validation and correctness
 
-The final ROM uses the default four-player configuration, with profiling,
-validation and the automatic tour disabled. Press Player 1 Z to enable the
-tour, or rebuild with `AUTOTOUR=1` when no controllers are mapped.
+`make BENCHMARK=1 VALIDATE=1` completed **199 one-second diagnostic samples**
+across all three phases with no `RDPQ_VALIDATION` errors or warnings.
+See the [captured validation log](rdpq-validation.txt). Validation adds heavy
+instrumentation overhead, so that build is excluded from performance acceptance.
+After the path fix, a further **67 samples** of the four-player tour also
+completed without validation errors; see the [final geometry log](rdpq-validation-final.txt).
 
-## Automated checks and remaining coverage
+<img src="screenshots/optimization/rdpq-validation.png" width="640" height="480" alt="Four-player RDPQ validation with diagnostic overhead enabled">
 
-- All 12 Zig host tests pass: controller isolation, view-count changes,
-  jumping, world bounds, shared data layout, split geometry, near clipping,
-  depth/viewport bounds, face winding, cache invalidation and animated scenes.
-- ROM verification confirms big-endian N64 magic and a linked O64 ELF.
-- The ABI guard confirms no implicit external calls and no `$gp` register
-  use in the Zig object. Deliberately invalid objects were rejected by both
-  checks during development.
-- Zig formatting, shell syntax, Python syntax and `git diff --check` pass.
+All 12 host tests pass. They cover controller isolation and persistent actors,
+world bounds, jumping/recentering edges, split geometry and RDP alignment,
+packed vertex/mesh layouts, RSP batch budgets, overflow detection, frame-slot
+isolation, and conservative visibility bounds throughout a complete benchmark.
+The ROM verifier confirms N64 big-endian magic, the O64 ELF, no implicit
+external calls from Zig, and a reserved global pointer. Zig formatting,
+shell/Python syntax, and `git diff --check` also pass.
 
-View counts were selected with `INITIAL_VIEWS` builds for visual checks.
-The ares controller ports were unmapped, so live keyboard/gamepad control and
-four physical controllers were not exercised. Packed controller behavior is
-covered by the host tests. No real N64, M64 or SummerCart64 run was performed.
+Live physical gamepads and real N64, M64 or SummerCart64 hardware were not
+available for this run. The benchmark drives the same packed input interface
+as four controller ports. The ares controller mappings were left untouched.
 
-The editable Blender file, rendered preview and exported indexed mesh were
-generated with Blender 5.2.1. Normal ROM builds use the generated mesh directly.
+The final ROM SHA-256 is
+`78cb82baeac8cf52645ac7ab774f6e399343ac9412a29b52e3e269b212fe501c`.
+
+The final ROM starts in four-player mode with benchmark, profiling, validation
+and automatic tour disabled. Player 1 Start cycles layouts; Z enables the tour.
+The editable Blender 5.2.1 source and its 130-vertex/188-triangle rabbit are
+unchanged by the renderer optimization.

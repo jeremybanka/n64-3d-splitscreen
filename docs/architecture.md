@@ -1,35 +1,51 @@
-# Zig / libdragon 3D architecture
+# Zig / Tiny3D / RDPQ architecture
 
 ## Rendering pipeline
 
-`game.zig` advances a single shared world at 60 Hz. Each of the four controller
-ports addresses exactly one rabbit. Camera visibility is independent of actor
-existence, so changing the split count never duplicates or resets the world.
+`game.zig` advances one shared world at 60 Hz. All four controller ports own
+persistent rabbits, independently of how many cameras are visible. Jump and
+recenter button edges survive render frames that contain no simulation step.
 
-For each visible camera, `scene.zig` computes a viewport and a camera basis,
-transforms mesh vertices using Q8 integers, clips against the near/far planes,
-projects once per rabbit vertex, culls back faces, and clips projected polygons
-to the viewport. Screen coordinates use Q4 pixels; depth is a perspective
-UNORM16 value. Trivially accepted/rejected triangles avoid polygon clipping.
-Static scenery is cached independently per camera and invalidated on changes
-to camera position, yaw, or viewport dimensions. Rabbit geometry is updated
-every frame. A bounded 2,048-triangle output array prevents buffer overruns;
-cache overflow falls back to generating the scenery directly.
+At startup, `scene.zig` builds indexed world and rabbit meshes in Tiny3D's
+packed vertex layout. Every batch uses at most 64 RSP vertices, with even,
+aligned DMA loads. Vertices are shared when their position, source vertex and
+baked face color agree. The Blender mesh and its flat shading are preserved.
+Scenery is grouped spatially so invisible ground tiles, trees, mountains and
+other objects can be skipped per camera. The C adapter records reusable RSP
+command blocks once, including triangle indices and synchronization.
 
-The C adapter reads the shared array, converts its fields to the floats required
-by `TRIFMT_ZBUF_SHADE`, and calls `rdpq_triangle`. In the pinned SDK this queues
-triangle setup on the RSP; the RDP performs shading, Z comparison/update, and
-pixel rasterization. Text, background clears, borders, and presentation also
-use RDPQ. No CPU code paints the framebuffer.
+Each frame, Zig computes the four animated rabbit poses once. It transforms
+130 source vertices per actor into world space and scatters their positions
+into the packed mesh, retaining static colors and topology. Ground shadows
+follow X/Z while staying on the ground during hops. All visible cameras read
+that same frame's vertices; no per-camera rabbit deformation is performed.
 
-Three color surfaces and one depth surface are used. Depth is cleared once
-at the beginning of each queued frame. Viewports are disjoint, so one depth
-surface is sufficient. Fill-mode scissor X starts are multiples of four pixels;
-the center separator is drawn afterward over the aligned view boundary.
-The RDP command queue orders consecutive frames and
-`rdpq_detach_show` presents only after hardware completion. The CPU can reuse
-the shared triangle array once submission finishes because RDPQ has copied
-its vertex data into the queue.
+The C adapter constructs each camera/projection matrix and tests conservative
+world and actor bounds against its frustum. Tiny3D transforms visible vertices,
+clips triangles, culls back faces and performs triangle setup on the **RSP**.
+The **RDP** shades and rasterizes them with antialiasing and depth comparison.
+RDPQ continues to own drawing state, clears, the Z surface, HUD and presentation.
+No CPU projection, triangle clipping or framebuffer rasterizer remains.
+
+## Coordinates and asynchronous data
+
+Zig positions retain Q8 precision. The camera matrix converts them to four RSP
+units per world unit (scale 1/64), with near/far values 4/320. This keeps
+Tiny3D's normalized W and integer screen scales away from severe quantization.
+The camera X basis and submitted triangle winding are reversed together to
+preserve the game's +Z-forward convention and camera-relative controls.
+
+Three independent slots hold animated vertices and four camera matrix sets.
+Each slot has an RSP completion fence. The CPU waits for that fence before
+reusing the slot, then writes back its modified vertex cache lines before
+queuing DMA. Static vertex memory remains immutable after initialization.
+Do not remove the fences or reuse one mutable camera matrix for four views.
+
+Three 320×240 color surfaces and one 16-bit depth surface are used. Depth is
+cleared once per frame because the viewports are disjoint. Fill-mode scissor
+X origins are multiples of four pixels; the center separator is drawn afterward.
+`rdpq_detach_show` schedules presentation after hardware completion. The
+repeated render loop is paced by the available display buffers.
 
 ## Calling convention boundary
 
@@ -44,15 +60,15 @@ arguments cross it. The controller word packs signed X/Y axes into bytes
 
 Data is shared separately through exported global symbols, never an
 ABI-dependent aggregate call. `bridge.h` and Zig tests verify the layouts:
-a vertex is three 32-bit integers, a triangle is three vertices plus RGBA32
-(40 bytes), and a viewport is four 32-bit integers (16 bytes).
+two interleaved vertices occupy 32 bytes, a batch descriptor and viewport each
+occupy 16 bytes, and a camera occupies 24 bytes. Packed positions are signed
+16-bit Q8; the RSP vertex colors and unused normal/UV fields match Tiny3D.
 
 `patch_mips_abi.zig` relabels the object's metadata for the GNU O64 linker.
 This is valid only together with this deliberately restricted interface.
 The private engine has **no unresolved external calls**. In particular,
-compiler-generated `memcpy`/`memset` calls would bypass the interface. Clipping
-and cache copies use explicit volatile stores so the compiler does not lower
-them to libc calls. `verify-zig-abi.sh` rejects such unresolved calls before
+compiler-generated `memcpy`/`memset` calls would bypass the interface. The animation loop iterates over player pointers to avoid lowering an
+aggregate copy into a libc call. `verify-zig-abi.sh` rejects such unresolved calls before
 linking. It also rejects any use of `$gp` in the private Zig object.
 
 ## Why reserving `$gp` matters
@@ -66,21 +82,27 @@ during development and was fixed by reserving the register, not by disabling
 interrupts. LLVM explicitly reserves GP when ABI calls are disabled; see its
 [register allocator implementation](https://llvm.org/docs/doxygen/MipsRegisterInfo_8cpp_source.html).
 
-The first experiment of making one copy explicit only changed register
-allocation and hid the symptom in a minimal scene. The global-pointer flag
-is the root fix. Both that flag and the no-external-call check are retained.
-
 `ReleaseSmall` keeps the scene code compact for the VR4300 instruction cache.
-All runtime Zig math is integer; the float conversions needed by RDPQ remain
+All runtime Zig math is integer; camera matrix operations remain
 in the O64 adapter. If libdragon gains an LLVM-supported ABI, remove this
 bridge and use the C API directly from Zig.
 
 ## Extending the sample
 
-Replace `environment()` with another bounded indexed mesh or scene builder.
-Invalidate/extend the static cache if scenery becomes dynamic. Increase the
-triangle budget deliberately, with a memory and frame-time check in ares.
-For substantially higher triangle throughput, replace the transform/submission
-backend with a batched RSP 3D renderer while retaining the world and camera
-interfaces. Moving the triangle setup to the CPU was benchmarked during
-development and was slower for this scene; the normal RSP path is retained.
+Extend `environment()` or supply another indexed mesh, keeping spatial groups
+small enough for useful frustum culling. The mesh builder reports capacity
+exhaustion before writing outside its arrays. Update `scene_bounds` if a new
+character or animation extends beyond the current conservative bounds; the
+host test verifies every packed body/shadow vertex throughout the benchmark.
+
+The normal build uses the unchanged Blender rabbit source. Tiny3D is pinned
+at `ec557373e986b5e041cc102a7ff787eb07921937`, before it adopted vector types
+that exist only in libdragon preview. Its source and library are local to
+`.build/tiny3d`; the SDK is not modified. `scripts/bootstrap-tiny3d.sh` fetches
+and builds only the library. See the [upstream project](https://github.com/HailToDodongo/tiny3d)
+and its [MIT license](licenses/Tiny3D.txt).
+
+Run `make BENCHMARK=1` after a renderer change, record ISViewer diagnostics,
+and use `scripts/check-performance.py` to check all three 20-second workloads.
+`PROFILE=1` adds CPU/submission timings; `VALIDATE=1` enables RDPQ validation
+and is deliberately excluded from performance acceptance.
