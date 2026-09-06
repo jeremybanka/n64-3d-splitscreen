@@ -122,8 +122,10 @@ mise run setup
 mise run test:rom
 ```
 
-The N64 SDK is cached by its pinned bootstrap script; a cold compiler build can
-take 40–70 minutes. Host checks need no SDK or Blender. CI verifies builds and
+The N64 SDK cache includes the pinned compiler image and SDK bootstrap script.
+CI downloads the official compiler and builds the pinned libraries from source;
+local setup can build the compiler without Docker. Host checks need no SDK or
+Blender. CI verifies builds and
 the ABI; emulator visuals and FPS still require an ares run. See
 [CI maintenance and coverage](docs/ci.md).
 

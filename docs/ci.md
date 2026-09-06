@@ -32,16 +32,24 @@ suite with a five-minute timeout. Debug preserves runtime safety checks;
 ReleaseSmall exercises the optimization mode used for the N64 object. A matrix
 failure does not cancel the other configuration.
 
-**N64 ROM** runs on Ubuntu 24.04 and builds the pinned GCC/libdragon SDK from
-source. Its exact cache key includes the runner architecture and a hash of
-`scripts/bootstrap-libdragon.sh`, which contains the libdragon revision. It
+**N64 ROM** runs on Ubuntu 24.04. On an empty cache it copies the official GCC
+toolchain out of a Linux x86_64 libdragon container pinned by its immutable
+image digest in `scripts/bootstrap-ci-toolchain.sh`. The compiler version is
+checked against GCC 16.2.0, matching our libdragon pin. Docker is only used for
+this CI bootstrap; Zig, SDK compilation, and game builds run on the host.
+Local `mise run setup` can still build the compiler from source without Docker.
+
+The job then builds the pinned libdragon SDK source. Its exact cache key includes
+the runner architecture and hashes of `scripts/bootstrap-ci-toolchain.sh` and
+`scripts/bootstrap-libdragon.sh`, which contain the compiler and SDK pins. It
 does not restore an older SDK when that key changes. The installed SDK is saved
 after successful setup, before project builds, so a game compilation failure
 does not force another compiler bootstrap. Tiny3D is built from its own pinned
 revision on every run; project object files are never restored from a cache.
 
-An empty cache can take 40–70 minutes to build the compiler, so this job has a
-90-minute timeout. Later runs reuse the SDK. Changing runner distribution or SDK
+Downloading the compiler avoids upstream's 40–70 minute source bootstrap on an
+empty cache. This job has a 20-minute timeout; later runs reuse the complete
+installed SDK. Changing runner distribution or SDK
 bootstrap inputs requires a new key. To force a rebuild without a source
 change, delete this repository's `n64-sdk-…` cache from GitHub Actions.
 
@@ -70,7 +78,10 @@ future commits.
 - Update action SHA pins and their version comments together. The shared setup
   action pins mise separately, matching the Lasertag pattern.
 - Update SDK and Tiny3D revisions in their bootstrap scripts together after
-  checking compatibility. A new SDK pin invalidates the cache automatically.
+  checking compatibility. If the SDK's compiler version changes, update the CI
+  compiler image digest and version guard as well. Resolve that digest from the
+  official `ghcr.io/dragonminded/libdragon` registry; never use a floating tag in
+  CI. Either pin change invalidates the SDK cache automatically.
 - Run `mise run setup` before `mise run test:rom` locally. The latter rebuilds
   the project's `build/` directory; generated ROMs remain ignored by Git.
 

@@ -35,8 +35,7 @@ jobs:
   ROM:
     name: N64 ROM
     runs-on: ubuntu-24.04
-    # Building GCC from source on an empty cache takes 40–70 minutes.
-    timeout-minutes: 90
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
@@ -47,15 +46,18 @@ jobs:
         with:
           path: .build/libdragon
           # No fallback keys: a changed SDK pin must trigger a fresh build.
-          key: n64-sdk-ubuntu-24.04-${{ runner.arch }}-${{ hashFiles('scripts/bootstrap-libdragon.sh') }}
+          key: n64-sdk-ubuntu-24.04-${{ runner.arch }}-${{ hashFiles('scripts/bootstrap-libdragon.sh', 'scripts/bootstrap-ci-toolchain.sh') }}
 
       - name: Install SDK Build Dependencies
         if: steps.sdk.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y \
-            build-essential bzip2 ca-certificates libgmp-dev libmpc-dev \
-            libmpfr-dev texinfo wget zlib1g-dev
+            build-essential ca-certificates libgmp10 libmpc3 libmpfr6 zlib1g-dev
+
+      - name: Install Pinned N64 Compiler
+        if: steps.sdk.outputs.cache-hit != 'true'
+        run: mise exec -- ./scripts/bootstrap-ci-toolchain.sh
 
       - name: Build SDK and Tiny3D
         run: mise run setup
@@ -77,4 +79,3 @@ jobs:
           path: build/roms/
           if-no-files-found: error
           retention-days: 14
-
