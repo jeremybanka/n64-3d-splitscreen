@@ -98,9 +98,9 @@ The [two-player picture](screenshots/optimization/path-before-fix.png) exposed Z
 path discs. The final path is a non-overlapping annulus above the meadow;
 the corrected layout pictures show a clean ring without the stippled streaks.
 
-## Hardware command validation and correctness
+## RDP command validation in ares and correctness
 
-`just build --benchmark 1 --validate 1` completed **199 one-second diagnostic samples**
+The archived benchmark with RDPQ validation enabled completed **199 one-second diagnostic samples**
 across all three phases with no `RDPQ_VALIDATION` errors or warnings.
 See the [captured validation log](rdpq-validation.txt). Validation adds heavy
 instrumentation overhead, so that build is excluded from performance acceptance.
@@ -142,3 +142,22 @@ Host event/parser tests and ROM/ABI builds validate the integration's code and
 packaging. Interactive listening, pause/reset latency, four-effect overlap and
 sustained workload-2 performance still need emulator or hardware observation;
 no such results are claimed here. Follow [the comparison procedure](audio.md#benchmark-comparison).
+
+## 2026-09-08 unchanged-main smoke observation
+
+Before integrating the template issue PRs, the original checkout reran formatting,
+script/workflow checks, both host optimization modes and the six then-existing
+ROM/ABI variants. Its normal and benchmark hashes matched the archived hashes
+above. A smoke check then loaded the unchanged normal ROM in pinned ares v147 and observed
+four correctly displayed meadow views with a 55 FPS reading. The unchanged
+benchmark ROM was loaded and seen starting. This was a brief smoke observation,
+not a sustained new performance capture or a confirmed PAL/NTSC test.
+
+The Mac subsequently locked and computer use could not unlock it. No visual,
+listening or performance verification of the new asset/audio/material/lifecycle/
+collision/diagnostic combination was performed. The earlier 115-sample capture
+belongs to the earlier untextured, pre-audio ROM; it does not establish the new
+combination's performance. Worktree paths/debug symbols can affect ROM bytes,
+so associate each new capture with its own SHA-256 rather than borrowing an old
+hash. Current physical evidence and outstanding checks are in the
+[hardware record](hardware.md) and [release gate](release-gate.md).

@@ -99,8 +99,15 @@ fn newBatch() void {
     if (mesh == &scene_environment) scene_environment_materials[mesh.batch_count] = world_material;
     mesh.batch_count += 1;
 }
+fn packedCoordinate(value: i32) i16 {
+    if (value < std.math.minInt(i16) or value > std.math.maxInt(i16)) {
+        scene_overflow = 1;
+        return 0;
+    }
+    return @intCast(value);
+}
 fn position(p: Vec3) [3]i16 {
-    return .{ @intCast(p.x), @intCast(p.y), @intCast(p.z) };
+    return .{ packedCoordinate(p.x), packedCoordinate(p.y), packedCoordinate(p.z) };
 }
 fn setVertex(dst: *Packed, index: u32, p: Vec3, color: u32) void {
     if (index % 2 == 0) {
@@ -125,7 +132,7 @@ fn emitVertex(p: Vec3, color: u32) u8 {
     if (mesh == &scene_environment and world_material == 1) {
         // Tiny3D UVs are signed 10.5 texel coordinates. With a 16x16 tile,
         // Q8 world X/Z maps to one repetition every two world metres.
-        const uv: [2]i16 = .{ @intCast(p.x), @intCast(p.z) };
+        const uv: [2]i16 = .{ packedCoordinate(p.x), packedCoordinate(p.z) };
         if (index % 2 == 0) mesh.vertices[index / 2].uv_a = uv else mesh.vertices[index / 2].uv_b = uv;
     }
     keys[b.vertex_count] = .{ .p = p, .color = color, .source = source_id, .material = material_id, .shade = shade_id };
@@ -267,6 +274,9 @@ export fn scene_init(options: u32) u32 {
     };
     return 0;
 }
+export fn scene_status() u32 {
+    return scene_overflow;
+}
 export fn scene_prepare(frame: u32) u32 {
     if (frame >= 3) return 0;
     for (&game.players, 0..) |*p, player| {
@@ -293,7 +303,7 @@ export fn scene_prepare(frame: u32) u32 {
             const dst = &scene_frames[frame][player][i / 2];
             if (i % 2 == 0) dst.pos_a = position(world[vertex_sources[i]]) else dst.pos_b = position(world[vertex_sources[i]]);
         }
-        scene_bounds[player] = .{ @intCast(p.pos.x - character_bounds.radius), @intCast(@min(p.pos.y, shadow_height)), @intCast(p.pos.z - character_bounds.radius), @intCast(p.pos.x + character_bounds.radius), @intCast(@max(p.pos.y + character_bounds.top, shadow_height)), @intCast(p.pos.z + character_bounds.radius) };
+        scene_bounds[player] = .{ packedCoordinate(p.pos.x - character_bounds.radius), packedCoordinate(@min(p.pos.y, shadow_height)), packedCoordinate(p.pos.z - character_bounds.radius), packedCoordinate(p.pos.x + character_bounds.radius), packedCoordinate(@max(p.pos.y + character_bounds.top, shadow_height)), packedCoordinate(p.pos.z + character_bounds.radius) };
     }
     // Frame geometry is indexed by physical port; views/cameras by compact slot.
     for (0..game.view_count) |slot| {
@@ -502,4 +512,17 @@ test "optional obstacle geometry fits and obstructed cameras retain a usable bas
     for (scene_cameras) |camera| {
         try std.testing.expect(@max(@abs(camera.eye[0] - camera.target[0]), @abs(camera.eye[2] - camera.target[2])) >= 16);
     }
+}
+
+test "packed coordinate limits report overflow in release builds as well as debug" {
+    scene_overflow = 0;
+    try std.testing.expectEqual(@as(i16, -32768), packedCoordinate(-32768));
+    try std.testing.expectEqual(@as(i16, 32767), packedCoordinate(32767));
+    try std.testing.expectEqual(@as(u32, 0), scene_overflow);
+    try std.testing.expectEqual(@as(i16, 0), packedCoordinate(32768));
+    try std.testing.expectEqual(@as(u32, 1), scene_overflow);
+    scene_overflow = 0;
+    try std.testing.expectEqual(@as(i16, 0), packedCoordinate(-32769));
+    try std.testing.expectEqual(@as(u32, 1), scene_overflow);
+    _ = scene_init(0);
 }

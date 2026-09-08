@@ -3,8 +3,8 @@
 A Zig-first Nintendo 64 template with one shared 3D world, four little rabbit
 characters, and **1–4 independent third-person cameras**. Triangles, depth
 buffering, antialiasing, clears, and text are drawn by **libdragon RDPQ**.
-**Tiny3D runs transforms and clipping on the RSP**, sustaining 40+ FPS in the
-four-player emulator benchmark. Gameplay and mesh preparation remain in Zig.
+**Tiny3D runs transforms and clipping on the RSP**. The archived pre-audio,
+untextured four-player emulator benchmark sustained 40+ FPS. Gameplay and mesh preparation remain in Zig.
 There is no CPU framebuffer rasterizer.
 
 <img src="docs/screenshots/4-players.png" width="640" height="480" alt="Four players in the same 3D meadow">
@@ -136,7 +136,7 @@ and material state across split views.
 ## Verification and limits
 
 `just test` runs native Nu asset/workload checks, C material-state tests and
-37 Zig tests for each
+38 Zig tests for each
 content pack, covering controller isolation, lifecycle transitions, audio events,
 button edges, swept obstacle movement, world bounds, view layouts, RSP packing/budgets, frame-slot isolation and
 animation bounds throughout all three benchmark phases. `just verify` checks the ROM
@@ -144,7 +144,7 @@ header, O64 ELF, implicit runtime calls, and the reserved global pointer.
 
 GitHub Actions runs separate **Check** and **Test** workflows on main pushes and
 pull requests. Check runs Zig formatting, native Nu parsing, SDK fixtures,
-original WAV/texture verification, audio/benchmark tests, and actionlint. Test runs the
+original WAV/texture verification, audio/benchmark/memory tests, and actionlint. Test runs the
 host suite in Debug and ReleaseSmall, then builds and verifies all four default
 layouts, validation and audio-on/off benchmark ROMs, and two
 alternate-content ROMs, plus textured layouts and both packs' validation/benchmark ROMs.
@@ -170,7 +170,7 @@ the ABI; emulator visuals and FPS still require an ares run. See
 See [the ares verification record](docs/verification.md) and
 [the Zig/libdragon architecture](docs/architecture.md), especially before
 changing compiler flags or the ABI bridge. Transforms, clipping, triangle setup and rasterization now run on the N64
-coprocessors. The final four-player stress run sustained **51–60 FPS across
+coprocessors. The archived pre-audio, untextured four-player stress run sustained **51–60 FPS across
 115 one-second samples** before audio was integrated; see the verification record
 for measurements and pictures. Combined graphics/audio FPS and listening checks
 remain pending. [Audio benchmark instructions](docs/audio.md#benchmark-comparison)
@@ -184,8 +184,14 @@ nu --no-config-file scripts/check-performance.nu path/to/ares-isviewer.log --tex
 ```
 
 The framebuffer is 320×240 at 16 bpp, triple buffered, with one shared 16-bit
-Z surface. No Expansion Pak is required by the allocation budget. Real N64,
-SummerCart64, and M64 hardware have not been tested in this adaptation.
+Z surface: 614,400 bytes of pixel/depth payload before allocator overhead.
+The owner reports that the template runs well on actual hardware. Console,
+region, RAM, cart, controller coverage, ROM hash, duration and measured FPS
+were not supplied. Base 4 MiB operation is an acceptance target; the final
+feature combination still needs a captured 4 MiB run. See the
+[hardware record](docs/hardware.md), [memory and geometry limits](docs/operating-envelope.md),
+and [release/fork gate](docs/release-gate.md). Startup and periodic `MEMORY` logs
+report the actual detected RAM, TV region and sampled heap headroom.
 
 For hardware deployment, connect a SummerCart64 and run `just deploy`;
 `just debug` opens its debug terminal. For SD-card use, copy the `.z64`
