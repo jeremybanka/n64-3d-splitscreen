@@ -78,12 +78,14 @@ unchanged output bytes/timestamps. They use private project storage.
 - Robot courtyard in four-player and validation/tour configurations.
 - Textured meadow in all four layouts, plus validation/tour and benchmark.
 - Textured robot courtyard in validation/tour and benchmark configurations.
+- Collision demo in normal, validation and benchmark modes.
+- Combined textured/collision validation and benchmark configurations.
 
 Every variant passes `scripts/verify-rom.nu`: big-endian ROM magic, O64 linked
 ELF, no implicit external calls from Zig, and no use of the reserved MIPS global
 pointer. The task leaves the normal four-player ROM as the default output.
 
-The `n64-roms-<commit>` artifact contains all seventeen `.z64` variants and
+The `n64-roms-<commit>` artifact contains all twenty-two `.z64` variants and
 `SHA256SUMS`, retained for 14 days. These checks establish that the game builds
 and meets the static ABI contract. They do not boot the ROM, listen to audio, or measure FPS.
 Blender-specific integration tests are optional locally (`just test-models`);

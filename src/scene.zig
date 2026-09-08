@@ -209,6 +209,14 @@ fn localVertex(id: usize) Vec3 {
     const angle = @as(i32, @intCast(id - character.vertices.len - 1)) * 16;
     return .{ .x = mul(sin(angle), 115), .z = mul(cos(angle), 115) };
 }
+// Keep visible collision shapes separate from the decorative content recipe.
+fn collisionObstacles() void {
+    if (!game.collision_demo) return;
+    for (game.arena.obstacles, game.arena.colors) |obstacle, color| {
+        group();
+        box(@divTrunc(obstacle.min.x + obstacle.max.x, 2), @divTrunc(obstacle.min.z + obstacle.max.z, 2), obstacle.min.y, @divTrunc(obstacle.max.x - obstacle.min.x, 2), @divTrunc(obstacle.max.z - obstacle.min.z, 2), obstacle.max.y - obstacle.min.y, color);
+    }
+}
 export fn scene_init(options: u32) u32 {
     scene_overflow = 0;
     textured_ground = options & 1 != 0;
@@ -216,6 +224,7 @@ export fn scene_init(options: u32) u32 {
     source_id = 0xffff;
     begin(&scene_environment);
     content.environment(@This());
+    collisionObstacles();
     padMesh();
     if (scene_overflow != 0) return 1;
     // Character batches are indexed by original Blender vertex + face shade.
@@ -293,7 +302,15 @@ export fn scene_prepare(frame: u32) u32 {
         const cs = sin(p.camera);
         const cc = cos(p.camera);
         const eye = Vec3{ .x = p.pos.x - mul(cs, 8 * Q), .y = 5 * Q, .z = p.pos.z - mul(cc, 8 * Q) };
-        scene_cameras[slot] = .{ .eye = .{ eye.x, eye.y, eye.z }, .target = .{ eye.x + mul(cs, 237), eye.y - 97, eye.z + mul(cc, 237) } };
+        if (game.collision_demo) {
+            const pivot = Vec3{ .x = p.pos.x, .y = p.pos.y + 2 * Q, .z = p.pos.z };
+            // Retain the desired diagonal view if the query cannot provide a
+            // usable eye; an inside/t=0 hit must never collapse look_at.
+            const adjusted = game.arena.cameraEye(pivot, eye) orelse eye;
+            scene_cameras[slot] = .{ .eye = .{ adjusted.x, adjusted.y, adjusted.z }, .target = .{ pivot.x, pivot.y, pivot.z } };
+        } else {
+            scene_cameras[slot] = .{ .eye = .{ eye.x, eye.y, eye.z }, .target = .{ eye.x + mul(cs, 237), eye.y - 97, eye.z + mul(cc, 237) } };
+        }
     }
     return scene_environment.index_count / 3 + @popCount(game.participant_mask) * scene_rabbit.index_count / 3;
 }
@@ -448,5 +465,31 @@ test "optional ground material has bounded planar UVs and never reaches actors" 
                 try std.testing.expectEqualDeep([2]i16{ 0, 0 }, pair.uv_b);
             }
         };
+    }
+}
+
+test "optional obstacle geometry fits and obstructed cameras retain a usable basis" {
+    _ = game.game_reset(0);
+    _ = scene_init(0);
+    const decorative_indices = scene_environment.index_count;
+    _ = game.game_collision_demo(1);
+    defer {
+        _ = game.game_reset(0);
+        _ = scene_init(0);
+    }
+    try std.testing.expectEqual(@as(u32, 0), scene_init(0));
+    try std.testing.expectEqual(decorative_indices + game.arena.obstacles.len * 30, scene_environment.index_count);
+    game.players[0].pos = .{ .x = 3 * Q };
+    game.players[0].camera = 192; // Desired eye lies behind the first wall.
+    _ = scene_prepare(0);
+    try std.testing.expect(scene_cameras[0].eye[0] > 3 * Q and scene_cameras[0].eye[0] < 4 * Q);
+    for (0..4) |port| {
+        // Include an inside pivot and all four independent orbit directions.
+        game.players[port].pos = .{ .x = 4 * Q + 1 };
+        game.players[port].camera = @as(i32, @intCast(port)) * 64;
+    }
+    _ = scene_prepare(1);
+    for (scene_cameras) |camera| {
+        try std.testing.expect(@max(@abs(camera.eye[0] - camera.target[0]), @abs(camera.eye[2] - camera.target[2])) >= 16);
     }
 }

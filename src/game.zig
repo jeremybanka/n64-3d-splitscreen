@@ -2,7 +2,9 @@
 //! LLVM's N32 floating-point convention never crosses the libdragon O64 seam.
 const std = @import("std");
 pub const Q: i32 = 256;
-pub const Vec3 = struct { x: i32 = 0, y: i32 = 0, z: i32 = 0 };
+pub const arena = @import("arena.zig");
+pub const Vec3 = @import("collision.zig").Vec3;
+pub var collision_demo = false;
 pub const colors = [4]u32{ 0xef8965ff, 0x7ab8e8ff, 0xeac762ff, 0xb29adfff };
 pub const sine = blk: {
     var table: [256]i32 = undefined;
@@ -78,6 +80,7 @@ pub fn step() void {
     ticks +%= 1;
     for (&players, 0..) |*p, i| {
         if (!isParticipant(i)) continue;
+        if (collision_demo) p.pos = arena.move(p.pos, 0, 0);
         const x = axis(p.input, 0);
         const y = axis(p.input, 8);
         if (p.input & (1 << 17) != 0) p.camera -= 2;
@@ -87,8 +90,14 @@ pub fn step() void {
         p.moving = x != 0 or y != 0;
         if (tour and !p.moving) {
             const a: i32 = @intCast((ticks / 4 + i * 64 + 32) % 256);
-            p.pos.x = mul(sin(a), 3 * Q);
-            p.pos.z = mul(cos(a), 3 * Q);
+            const target_x = mul(sin(a), 3 * Q);
+            const target_z = mul(cos(a), 3 * Q);
+            if (collision_demo) {
+                p.pos = arena.move(p.pos, target_x - p.pos.x, target_z - p.pos.z);
+            } else {
+                p.pos.x = target_x;
+                p.pos.z = target_z;
+            }
             p.yaw = a + 128;
             p.camera = p.yaw;
             p.moving = true;
@@ -98,8 +107,7 @@ pub fn step() void {
             const scale: i32 = @intCast(@max(magnitude, 80));
             const dx = @divTrunc((mul(x, cos(p.camera)) + mul(y, sin(p.camera))) * 22, scale);
             const dz = @divTrunc((-mul(x, sin(p.camera)) + mul(y, cos(p.camera))) * 22, scale);
-            p.pos.x = std.math.clamp(p.pos.x + dx, -13 * Q, 13 * Q);
-            p.pos.z = std.math.clamp(p.pos.z + dz, -13 * Q, 13 * Q);
+            movePlayer(p, dx, dz);
             // Quantized facing is appropriate for the deliberately low-poly model.
             var best_dot: i32 = -0x7fffffff;
             var a: i32 = 0;
@@ -135,12 +143,10 @@ pub fn step() void {
             const push: i32 = @intCast((150 - d) / 2 + 1);
             if (@abs(dx) >= @abs(dz)) {
                 const s: i32 = if (dx >= 0) 1 else -1;
-                players[i].pos.x -= push * s;
-                players[j].pos.x += push * s;
+                separate(i, j, push, s, true);
             } else {
                 const s: i32 = if (dz >= 0) 1 else -1;
-                players[i].pos.z -= push * s;
-                players[j].pos.z += push * s;
+                separate(i, j, push, s, false);
             }
         }
     };
@@ -150,9 +156,49 @@ pub fn step() void {
         p.pos.z = std.math.clamp(p.pos.z, -13 * Q, 13 * Q);
     }
 }
+fn movePlayer(p: *Player, dx: i32, dz: i32) void {
+    if (collision_demo) {
+        p.pos = arena.move(p.pos, dx, dz);
+    } else {
+        p.pos.x = std.math.clamp(p.pos.x + dx, -13 * Q, 13 * Q);
+        p.pos.z = std.math.clamp(p.pos.z + dz, -13 * Q, 13 * Q);
+    }
+}
+fn separate(i: usize, j: usize, push: i32, sign: i32, comptime x_axis: bool) void {
+    if (!collision_demo) {
+        if (x_axis) {
+            players[i].pos.x -= push * sign;
+            players[j].pos.x += push * sign;
+        } else {
+            players[i].pos.z -= push * sign;
+            players[j].pos.z += push * sign;
+        }
+        return;
+    }
+    const old_i = if (x_axis) players[i].pos.x else players[i].pos.z;
+    const old_j = if (x_axis) players[j].pos.x else players[j].pos.z;
+    movePlayer(&players[i], if (x_axis) -push * sign else 0, if (x_axis) 0 else -push * sign);
+    movePlayer(&players[j], if (x_axis) push * sign else 0, if (x_axis) 0 else push * sign);
+    const moved_i = (old_i - (if (x_axis) players[i].pos.x else players[i].pos.z)) * sign;
+    const moved_j = ((if (x_axis) players[j].pos.x else players[j].pos.z) - old_j) * sign;
+    // A wall may prevent one half of separation. Let the other actor absorb
+    // the remainder, with the same sweeps; never push an actor into a wall.
+    var remainder = 2 * push - moved_i - moved_j;
+    const before_j = if (x_axis) players[j].pos.x else players[j].pos.z;
+    movePlayer(&players[j], if (x_axis) remainder * sign else 0, if (x_axis) 0 else remainder * sign);
+    remainder -= ((if (x_axis) players[j].pos.x else players[j].pos.z) - before_j) * sign;
+    movePlayer(&players[i], if (x_axis) -remainder * sign else 0, if (x_axis) 0 else -remainder * sign);
+}
+// Configure before scene_init; changing demo geometry requires rebuilding it.
+pub export fn game_collision_demo(value: u32) u32 {
+    collision_demo = value != 0;
+    reset();
+    return @intFromBool(collision_demo);
+}
 // Cold boot restores the demonstration policy. reset()/command 3 restart the
 // world while retaining connections, participants, visible views and pause.
 pub export fn game_reset(_: u32) u32 {
+    collision_demo = false;
     connected_mask = 0;
     participant_mask = 15;
     visible_mask = 15;
@@ -587,4 +633,93 @@ test "benchmark workload two exercises all four simultaneous sound events" {
         if (phase == 2 and events & 15 == 15) simultaneous = true;
     }
     try std.testing.expect(simultaneous);
+}
+
+fn resetCollisionTest() void {
+    _ = game_reset(0);
+    _ = game_collision_demo(1);
+    _ = game_connections(15);
+    for (0..4) |port| _ = game_input(@as(u32, @intCast(port)) << 30);
+}
+fn expectClearActor(p: Player) !void {
+    try std.testing.expect(@abs(p.pos.x) <= 13 * Q and @abs(p.pos.z) <= 13 * Q);
+    for (arena.obstacles) |obstacle| {
+        const penetrates = p.pos.x > obstacle.min.x - arena.radius and p.pos.x < obstacle.max.x + arena.radius and
+            p.pos.z > obstacle.min.z - arena.radius and p.pos.z < obstacle.max.z + arena.radius;
+        try std.testing.expect(!penetrates);
+    }
+}
+
+test "obstacle movement preserves hidden participants and physical port isolation" {
+    resetCollisionTest();
+    defer _ = game_reset(0);
+    _ = game_participants(5);
+    _ = game_views(4); // P1 is active but hidden; P2 is inactive.
+    players[0].pos = .{ .x = 3 * Q };
+    players[0].camera = 0;
+    players[1].pos = .{ .x = 4 * Q + 1 }; // An inactive port stays untouched.
+    const before = players;
+    _ = game_input(80);
+    for (0..160) |i| {
+        if (i == 60) _ = game_input(80 | (1 << 16));
+        step();
+        try expectClearActor(players[0]);
+    }
+    try std.testing.expectEqual(@as(i32, 4 * Q - arena.radius), players[0].pos.x);
+    try std.testing.expectEqual(@as(i32, 0), players[0].pos.z);
+    for (1..4) |port| try std.testing.expectEqualDeep(before[port].pos, players[port].pos);
+    try std.testing.expectEqual(@as(u32, 2), game_view_port(0));
+}
+
+test "player separation sweeps against obstacles and world corners" {
+    resetCollisionTest();
+    defer _ = game_reset(0);
+    _ = game_participants(3);
+    const contact = Vec3{ .x = 4 * Q - arena.radius };
+    players[0].pos = contact;
+    players[1].pos = contact;
+    step();
+    try expectClearActor(players[0]);
+    try expectClearActor(players[1]);
+    try std.testing.expect(@abs(players[0].pos.x - players[1].pos.x) >= 150);
+    players[0].pos = .{ .x = 13 * Q, .z = 13 * Q };
+    players[1].pos = players[0].pos;
+    step();
+    try expectClearActor(players[0]);
+    try expectClearActor(players[1]);
+    try std.testing.expect(@abs(players[0].pos.x - players[1].pos.x) >= 150);
+    _ = game_participants(15);
+    for (&players) |*p| p.pos = .{ .x = 4 * Q + 1, .z = 3 * Q };
+    for (0..60) |_| {
+        step();
+        for (players) |p| try expectClearActor(p);
+    }
+    for (players, 0..) |a, i| for (players[i + 1 ..]) |b| {
+        try std.testing.expect(!std.meta.eql(a.pos, b.pos));
+    };
+}
+
+test "collision remains deterministic across fixed-step batching and tour changes" {
+    resetCollisionTest();
+    defer _ = game_reset(0);
+    players[0].pos = .{ .x = 3 * Q };
+    players[0].camera = 0;
+    _ = game_input(80);
+    _ = game_tick(15);
+    const before = players;
+    resetCollisionTest();
+    players[0].pos = .{ .x = 3 * Q };
+    players[0].camera = 0;
+    _ = game_input(80);
+    for (0..15) |_| _ = game_tick(1);
+    try std.testing.expectEqualDeep(before, players);
+    players[0].pos = .{ .x = 13 * Q, .z = 13 * Q };
+    players[0].input = 0;
+    tour = true;
+    for (0..100) |_| {
+        step();
+        for (players) |p| try expectClearActor(p);
+    }
+    _ = game_command(3);
+    try std.testing.expect(collision_demo); // Session restart retains demo policy.
 }
