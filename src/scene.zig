@@ -235,6 +235,7 @@ export fn scene_init(_: u32) u32 {
 export fn scene_prepare(frame: u32) u32 {
     if (frame >= 3) return 0;
     for (&game.players, 0..) |*p, player| {
+        if (!game.isParticipant(player)) continue;
         const s = sin(p.yaw);
         const c = cos(p.yaw);
         const walk = sin(p.walk);
@@ -258,13 +259,17 @@ export fn scene_prepare(frame: u32) u32 {
             if (i % 2 == 0) dst.pos_a = position(world[vertex_sources[i]]) else dst.pos_b = position(world[vertex_sources[i]]);
         }
         scene_bounds[player] = .{ @intCast(p.pos.x - character_bounds.radius), @intCast(@min(p.pos.y, shadow_height)), @intCast(p.pos.z - character_bounds.radius), @intCast(p.pos.x + character_bounds.radius), @intCast(@max(p.pos.y + character_bounds.top, shadow_height)), @intCast(p.pos.z + character_bounds.radius) };
-        scene_views[player] = viewport(game.view_count, @intCast(player));
+    }
+    // Frame geometry is indexed by physical port; views/cameras by compact slot.
+    for (0..game.view_count) |slot| {
+        const p = &game.players[game.game_view_port(@intCast(slot))];
+        scene_views[slot] = viewport(game.view_count, @intCast(slot));
         const cs = sin(p.camera);
         const cc = cos(p.camera);
         const eye = Vec3{ .x = p.pos.x - mul(cs, 8 * Q), .y = 5 * Q, .z = p.pos.z - mul(cc, 8 * Q) };
-        scene_cameras[player] = .{ .eye = .{ eye.x, eye.y, eye.z }, .target = .{ eye.x + mul(cs, 237), eye.y - 97, eye.z + mul(cc, 237) } };
+        scene_cameras[slot] = .{ .eye = .{ eye.x, eye.y, eye.z }, .target = .{ eye.x + mul(cs, 237), eye.y - 97, eye.z + mul(cc, 237) } };
     }
-    return scene_environment.index_count / 3 + 4 * scene_rabbit.index_count / 3;
+    return scene_environment.index_count / 3 + @popCount(game.participant_mask) * scene_rabbit.index_count / 3;
 }
 
 test "split viewports fit, never overlap, and satisfy RDP fill alignment" {
@@ -304,7 +309,7 @@ test "C bridge and Tiny3D vertex layouts agree" {
 }
 test "animated data is shared across views and frame slots remain independent" {
     _ = scene_init(0);
-    game.reset();
+    _ = game.game_reset(0);
     game.tour = true;
     _ = scene_prepare(0);
     const before = scene_frames[0][0][0];
@@ -327,7 +332,7 @@ test "mesh growth reports overflow before writing beyond its storage" {
 }
 test "animated bounds contain every packed body and ground shadow vertex" {
     _ = scene_init(0);
-    game.reset();
+    _ = game.game_reset(0);
     for (0..3600) |step| {
         _ = game.game_benchmark(1);
         if (step % 60 != 0) continue;
@@ -341,4 +346,51 @@ test "animated bounds contain every packed body and ground shadow vertex" {
             }
         }
     }
+}
+
+test "noncontiguous visible ports retain their cameras in compact slots" {
+    _ = scene_init(0);
+    _ = game.game_reset(0);
+    _ = scene_prepare(0);
+    const second = scene_cameras[1];
+    const fourth = scene_cameras[3];
+    _ = game.game_participants(10);
+    _ = scene_prepare(1);
+    try std.testing.expectEqualDeep(second, scene_cameras[0]);
+    try std.testing.expectEqualDeep(fourth, scene_cameras[1]);
+    try std.testing.expectEqualDeep(viewport(2, 0), scene_views[0]);
+    try std.testing.expectEqualDeep(viewport(2, 1), scene_views[1]);
+    _ = game.game_views(8);
+    _ = scene_prepare(2);
+    try std.testing.expectEqualDeep(fourth, scene_cameras[0]);
+    try std.testing.expectEqualDeep(viewport(1, 0), scene_views[0]);
+    _ = game.game_views(0);
+    _ = scene_prepare(0); // Active participants may all have hidden cameras.
+    try std.testing.expectEqual(@as(u32, 0), game.view_count);
+    _ = game.game_participants(0);
+    _ = scene_prepare(0); // Zero participants must never request an invalid camera.
+    try std.testing.expectEqual(@as(u32, 0), game.view_count);
+}
+
+test "pausing preserves the walking pose throughout paused simulation ticks" {
+    _ = scene_init(0);
+    _ = game.game_reset(0);
+    _ = game.game_connections(1);
+    _ = game.game_input(0);
+    _ = game.game_input(80 << 8);
+    game.step();
+    try std.testing.expect(game.players[0].moving);
+    _ = scene_prepare(0);
+    const camera = scene_cameras[0];
+    const bounds = scene_bounds[0];
+    _ = game.game_pause(1);
+    for (0..15) |_| game.step();
+    _ = scene_prepare(1);
+    const pairs = (scene_rabbit.vertex_count + 1) / 2;
+    try std.testing.expectEqualDeep(scene_frames[0][0][0..pairs], scene_frames[1][0][0..pairs]);
+    try std.testing.expectEqualDeep(camera, scene_cameras[0]);
+    try std.testing.expectEqualDeep(bounds, scene_bounds[0]);
+    _ = game.game_pause(0);
+    game.step();
+    try std.testing.expect(!game.players[0].moving);
 }

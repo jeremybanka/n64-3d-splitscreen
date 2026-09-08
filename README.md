@@ -24,11 +24,15 @@ rabbit. A controller is not required to see the initial demonstration.
 | Player 1 Start | Cycle 4 → 1 → 2 → 3 → 4 views |
 | Player 1 Z | Toggle the automatic walking/camera tour |
 | Player 1 C-down | Reset the shared world |
+| Player 1 C-up | Pause / resume |
 
 One player fills the screen. Two players use horizontal halves. Three use a
 wide top view and two lower views. Four use quadrants. Projection uses each
 view's actual dimensions, with RDP scissoring preventing any drawing across
-the separators.
+the separators. `OFF` marks a disconnected controller without removing its
+rabbit. Release all controls after boot, reconnect, reset, or pause/resume to
+rearm input. [Multiplayer lifecycle](docs/multiplayer.md) describes participation,
+visible-port mapping, and the small pause/reset interface for game forks.
 
 ## Build and run
 
@@ -84,7 +88,7 @@ rendering, with bounded catch-up after a pause.
 ## Make it your game
 
 - `src/game.zig`: player state, input packing, movement, hopping, separation,
-  camera yaw, tour, and view count. Replace or extend these rules.
+  camera yaw, tour, connection/participation policy, and pause/reset hooks.
 - `src/scene.zig`: viewport layouts, camera inputs, indexed RSP batches,
   spatial scenery groups, shared rabbit poses, and visibility bounds.
 - `src/main.c`: libdragon/Tiny3D adapter for controllers, timing, camera
@@ -119,8 +123,8 @@ coordinates, capacity checks and explicit source generation commands.
 
 ## Verification and limits
 
-`just test` runs native Nu mesh-validation checks and 12 Zig tests for each
-content pack, covering controller isolation, button edges,
+`just test` runs native Nu mesh-validation checks and 21 Zig tests for each
+content pack, covering controller isolation, lifecycle transitions, button edges,
 world bounds, view layouts, RSP packing/budgets, frame-slot isolation and
 animation bounds throughout all three benchmark phases. `just verify` checks the ROM
 header, O64 ELF, implicit runtime calls, and the reserved global pointer.

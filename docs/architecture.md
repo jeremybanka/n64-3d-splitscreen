@@ -5,6 +5,10 @@
 `game.zig` advances one shared world at 60 Hz. All four controller ports own
 persistent rabbits, independently of how many cameras are visible. Jump and
 recenter button edges survive render frames that contain no simulation step.
+Games can set participation and visible-port masks independently of controller
+connections, and pause or restart through the [lifecycle API](multiplayer.md).
+Removed participants stop simulating/colliding/rendering; hidden participants
+continue. Viewport slots compact the selected physical ports in ascending order.
 
 At startup, `scene.zig` builds indexed world and rabbit meshes in Tiny3D's
 packed vertex layout. Every batch uses at most 64 RSP vertices, with even,
@@ -57,7 +61,9 @@ not O64. The engine is built for big-endian MIPS III/N32, with 64-bit GPRs,
 Only functions taking zero or one `uint32_t` argument and returning `uint32_t`
 cross the boundary. No float, pointer, struct, varargs, or stack-passed
 arguments cross it. The controller word packs signed X/Y axes into bytes
-0/1, flags into bits 16–19, and the player index into bits 30–31.
+0/1, gameplay flags into bits 16–19, held action/command indicators into bits
+20–22, and the physical port into bits 30–31. The held indicators allow lifecycle
+transitions to suppress stale actions until a neutral poll rearms the port.
 
 Data is shared separately through exported global symbols, never an
 ABI-dependent aggregate call. `bridge.h` and Zig tests verify the layouts:
