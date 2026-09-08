@@ -59,14 +59,19 @@ ifeq ($(VALIDATE),1)
 CFLAGS += -DRDPQ_VALIDATE
 endif
 
-$(BUILD_DIR)/scene.o: src/scene.zig src/game.zig src/generated/rabbit.zig tools/patch_mips_abi.zig scripts/verify-zig-abi.sh Makefile
+# Let Zig discover every import and @embedFile through its own cache, including
+# newly added modules. Only replace the patched object when its bytes change,
+# so a cache hit does not relink/repackage the ROM.
+$(BUILD_DIR)/scene.o: src/scene.zig FORCE
 	@mkdir -p $(dir $@)
 	@echo "    [ZIG] $<"
 	zig build-obj $< -target mips64-freestanding-gnuabin32 -mcpu mips3+noabicalls -fno-PIC \
-		-O ReleaseSmall -fno-stack-check -femit-bin=$@
-	zig run tools/patch_mips_abi.zig -- $@
-	$(N64_OBJCOPY) --rename-section .mdebug.abiN32=.mdebug.abiO64 $@
-	./scripts/verify-zig-abi.sh $@
+		-O ReleaseSmall -fno-stack-check -femit-bin=$@.tmp
+	zig run tools/patch_mips_abi.zig -- $@.tmp
+	$(N64_OBJCOPY) --rename-section .mdebug.abiN32=.mdebug.abiO64 $@.tmp
+	./scripts/verify-zig-abi.sh $@.tmp
+	@cmp -s $@.tmp $@ || mv $@.tmp $@
+	@rm -f $@.tmp
 
 test:
 	zig test src/scene.zig

@@ -46,7 +46,7 @@ jobs:
         with:
           path: .build/libdragon
           # No fallback keys: a changed SDK pin must trigger a fresh build.
-          key: n64-sdk-ubuntu-24.04-${{ runner.arch }}-${{ hashFiles('scripts/bootstrap-libdragon.sh', 'scripts/bootstrap-ci-toolchain.sh') }}
+          key: n64-sdk-ubuntu-24.04-${{ runner.arch }}-${{ hashFiles('scripts/bootstrap-libdragon.sh', 'scripts/bootstrap-ci-toolchain.sh', 'scripts/sdk-identity.py') }}
 
       - name: Install SDK Build Dependencies
         if: steps.sdk.outputs.cache-hit != 'true'
@@ -68,6 +68,9 @@ jobs:
         with:
           path: .build/libdragon
           key: ${{ steps.sdk.outputs.cache-primary-key }}
+
+      - name: Verify Incremental Build Dependencies
+        run: mise run test:build
 
       - name: Build and Verify ROM Variants
         run: mise run test:rom

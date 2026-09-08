@@ -18,8 +18,5 @@ mkdir -p "$N64_INST"
 docker cp "$container:/n64_toolchain/." "$N64_INST/"
 
 # Match the GCC version in the pinned libdragon tools/build-toolchain.sh.
-version="$("$N64_INST/bin/mips64-elf-gcc" -dumpfullversion)"
-if [[ "$version" != 16.2.0 ]]; then
-    echo "Unexpected N64 GCC version: $version" >&2
-    exit 1
-fi
+identity="$(dirname "${BASH_SOURCE[0]}")/sdk-identity.py"
+python3 "$identity" record-compiler --install "$N64_INST" --origin "$TOOLCHAIN_IMAGE"

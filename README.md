@@ -32,6 +32,7 @@ the separators.
 
 ## Build and run
 
+Use Python 3.12 or newer for SDK setup and build regression checks.
 Zig 0.16.0, libdragon and Tiny3D revisions are pinned. Mise also installs the CI
 linters. The pinned Rust toolchain is installed on demand by the optional
 SummerCart64 deployment task.
@@ -46,10 +47,14 @@ mise run emulate     # pinned ares v147, OpenGL 3.2, homebrew mode
 ```
 
 Output: **`n64-3d-splitscreen.z64`**. Normal builds use the checked-in rabbit
-mesh and do not require Blender. If the SDK is already installed, set
-`N64_INST=/path/to/libdragon` and run `make` with Zig on `PATH`, or reuse it
-at `.build/libdragon`. Then run `./scripts/bootstrap-tiny3d.sh` once to add
-the local RSP library. No additional Blender plugins or GLTF tools are needed.
+mesh and do not require Blender. Setup records the pinned SDK revision, compiler
+identity, and installed-file hashes; subsequent setup verifies them before reuse.
+For an external SDK, run `N64_INST=/path/to/libdragon ./scripts/bootstrap-libdragon.sh`
+and `N64_INST=/path/to/libdragon ./scripts/bootstrap-tiny3d.sh`, then run
+`N64_INST=/path/to/libdragon make` with Zig on `PATH`. An existing unmarked SDK
+can be verified against its clean pinned source checkout without changing the
+installation. See [SDK verification and recovery](docs/build-reproducibility.md).
+No additional Blender plugins or GLTF tools are needed.
 
 The emulator helper uses the project's pinned ares installation. The
 installed v148 Metal backend flickered on the development machine; v147's
@@ -69,7 +74,9 @@ make                          # restores the normal four-player configuration
 ```
 
 Reload the ROM in ares after building. Changes to these options automatically
-rebuild the adapter. The simulation uses a fixed 60 Hz step independently of
+rebuild the adapter. Zig checks its own dependency cache on every build, including
+new imports and embedded assets; unchanged objects do not relink the ROM.
+The simulation uses a fixed 60 Hz step independently of
 rendering, with bounded catch-up after a pause.
 
 ## Make it your game
@@ -119,6 +126,7 @@ mise run check
 mise run test
 mise run test -O ReleaseSmall
 mise run setup
+mise run test:build
 mise run test:rom
 ```
 

@@ -17,7 +17,7 @@ secrets. No workflow publishes releases or deploys to hardware.
 | Job | Local command | Coverage |
 | --- | --- | --- |
 | Formatting | `mise run fmt` | Zig source, generated mesh, and ABI patch tool formatting |
-| Scripts | `mise run check:scripts` | ShellCheck for all shell scripts; Python syntax without importing Blender |
+| Scripts | `mise run check:scripts` | ShellCheck for all shell scripts; Python syntax without importing Blender; SDK identity fixture regressions |
 | Workflows | `mise run check:workflows` | actionlint, including expressions, action inputs, and embedded shell commands |
 
 `mise run check` runs all three. Each job has a five-minute timeout. Tool
@@ -41,7 +41,8 @@ Local `mise run setup` can still build the compiler from source without Docker.
 
 The job then builds the pinned libdragon SDK source. Its exact cache key includes
 the runner architecture and hashes of `scripts/bootstrap-ci-toolchain.sh` and
-`scripts/bootstrap-libdragon.sh`, which contain the compiler and SDK pins. It
+`scripts/bootstrap-libdragon.sh` plus `scripts/sdk-identity.py`, which contain
+the bootstrap logic and SDK/compiler version pins. It
 does not restore an older SDK when that key changes. The installed SDK is saved
 after successful setup, before project builds, so a game compilation failure
 does not force another compiler bootstrap. Tiny3D is built from its own pinned
@@ -49,9 +50,18 @@ revision on every run; project object files are never restored from a cache.
 
 Downloading the compiler avoids upstream's 40–70 minute source bootstrap on an
 empty cache. This job has a 20-minute timeout; later runs reuse the complete
-installed SDK. Changing runner distribution or SDK
+installed SDK. Each setup verifies its recorded revision, compiler target/version,
+and file hashes even on a cache hit. The compiler image digest is recorded in
+its provenance. Changing runner distribution or SDK
 bootstrap inputs requires a new key. To force a rebuild without a source
 change, delete this repository's `n64-sdk-…` cache from GitHub Actions.
+
+`mise run test:build` first checks SDK identity rejection/reuse against isolated
+fixtures. It then exercises the real Make/Zig/ABI pipeline with a newly imported
+nested module, edits it without touching the root, changes embedded data, removes
+the import, and verifies unchanged output. Finally it verifies a no-op sample
+build preserves the C/Zig objects, ELF and ROM bytes and modification times.
+This step uses the installed SDK but never writes to it.
 
 `mise run test:rom` starts with `make clean`, then builds:
 
@@ -77,9 +87,10 @@ future commits.
   both host test modes, and `mise run test:rom` before accepting a compiler update.
 - Update action SHA pins and their version comments together. The shared setup
   action pins mise separately, matching the Lasertag pattern.
-- Update SDK and Tiny3D revisions in their bootstrap scripts together after
+- Update the SDK revision/GCC version in `scripts/sdk-identity.py` and the Tiny3D
+  revision in its bootstrap script together after
   checking compatibility. If the SDK's compiler version changes, update the CI
-  compiler image digest and version guard as well. Resolve that digest from the
+  compiler image digest as well. Resolve that digest from the
   official `ghcr.io/dragonminded/libdragon` registry; never use a floating tag in
   CI. Either pin change invalidates the SDK cache automatically.
 - Run `mise run setup` before `mise run test:rom` locally. The latter rebuilds
