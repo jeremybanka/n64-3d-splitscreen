@@ -24,7 +24,8 @@ uint32_t game_status(void);
 uint32_t game_benchmark(uint32_t steps);
 /* Drain once after simulation: hops 0..3, stop-player 4..7, music restart 8. */
 uint32_t game_audio_events(void);
-uint32_t scene_init(uint32_t unused);
+/* scene_init option bit 0 enables the ground texture. */
+uint32_t scene_init(uint32_t options);
 uint32_t scene_prepare(uint32_t frame);
 /* Packed RSP data and fixed-width camera inputs; no aggregate calls. */
 typedef struct { int16_t pos_a[3]; uint16_t norm_a; int16_t pos_b[3]; uint16_t norm_b; uint32_t color_a, color_b; int16_t uv_a[2], uv_b[2]; } packed_vertex_t;
@@ -39,6 +40,8 @@ typedef struct { int32_t x, y, w, h; } viewport_t;
 typedef struct { int32_t eye[3], target[3]; } camera_t;
 #define FRAME_PAIRS 384
 extern mesh_t scene_environment, scene_rabbit;
+enum { MATERIAL_FLAT = 0, MATERIAL_GROUND = 1 };
+extern uint32_t scene_environment_materials[64];
 extern packed_vertex_t scene_frames[3][4][FRAME_PAIRS];
 extern viewport_t scene_views[4];
 extern camera_t scene_cameras[4];

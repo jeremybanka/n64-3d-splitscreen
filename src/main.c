@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include "bridge.h"
 #include "sound.h"
+#include "material.h"
 #include <t3d/t3d.h>
 _Static_assert(sizeof(T3DVertPacked) == sizeof(packed_vertex_t), "RSP vertex layout");
 _Static_assert(INITIAL_VIEWS >= 1 && INITIAL_VIEWS <= 4, "INITIAL_VIEWS must be 1..4");
@@ -68,7 +69,8 @@ static rspq_block_t *record_mesh(const mesh_t *mesh, packed_vertex_t *vertices, 
 }
 
 static void init_scene(void) {
-    assertf(scene_init(0) == 0, "Scene exceeds packed vertex capacity");
+    assertf(scene_init(TEXTURED) == 0, "Scene exceeds packed vertex capacity");
+    material_init();
     data_cache_hit_writeback(&scene_environment, sizeof(scene_environment));
     data_cache_hit_writeback(scene_frames, sizeof(scene_frames));
     for (unsigned b = 0; b < scene_environment.batch_count; b++) {
@@ -131,18 +133,18 @@ static void draw_scene(unsigned view, uint32_t status) {
     t3d_viewport_attach(vp);
     rdpq_clear(RGBA32(191,215,205,255));
     t3d_frame_start();
+    material_view_begin();
     rdpq_mode_dithering(DITHER_NONE_NONE);
-    rdpq_mode_combiner(RDPQ_COMBINER_SHADE);
     const uint8_t ambient[4] = {255,255,255,255};
     t3d_light_set_ambient(ambient);
     t3d_light_set_count(0);
-    t3d_state_set_drawflags(T3D_FLAG_SHADED | T3D_FLAG_DEPTH | T3D_FLAG_CULL_BACK);
     for (unsigned b = 0; b < scene_environment.batch_count; b++) {
         if (!t3d_frustum_vs_aabb_s16(&vp->viewFrustum, environment_bounds[b], environment_bounds[b]+3)) continue;
+        material_bind(scene_environment_materials[b]);
         rspq_block_run(environment_blocks[b]);
         triangles += scene_environment.batches[b].index_count/3;
     }
-    t3d_state_set_drawflags(T3D_FLAG_SHADED | T3D_FLAG_DEPTH | T3D_FLAG_CULL_BACK);
+    material_bind(MATERIAL_FLAT);
     for (unsigned p = 0; p < 4; p++) {
         if (!(status & (1u << (16 + p)))) continue;
         if (!t3d_frustum_vs_aabb_s16(&vp->viewFrustum, scene_bounds[p], scene_bounds[p]+3)) continue;
@@ -176,7 +178,7 @@ int main(void) {
     sound_init();
     sound_update(game_status());
     sound_service(); // Prime output before the first display wait.
-    debugf("Bunny Meadow: Zig simulation / RDPQ rasterization / 4 controllers\n");
+    debugf("Bunny Meadow: Zig simulation / RDPQ rasterization / 4 controllers; content=%s textured=%u\n", CONTENT_NAME, TEXTURED);
     uint64_t previous = get_ticks_us();
     uint32_t accumulator = 0;
     unsigned frame_count = 0, fps = 0, benchmark_phase = 0;
@@ -242,9 +244,9 @@ int main(void) {
 #if PROFILE || BENCHMARK || defined(RDPQ_VALIDATE)
             debugf("PERF views=%u phase=%u fps=%u cpu_us=%u submit_us=%u triangles=%u "
                 "audio=%u audio_us=%u audio_buffers=%lu audio_gap_us=%lu audio_budget_us=%lu "
-                "audio_sfx=%lu audio_overlap=%lu workload=2\n",
+                "audio_sfx=%lu audio_overlap=%lu workload=2 textured=%u content=%s\n",
                 views, benchmark_phase, fps, transform_us, submit_us, triangles,
-                AUDIO, audio_us, audio.buffers, audio.max_gap_us, audio.budget_us, audio.starts, audio.overlap);
+                AUDIO, audio_us, audio.buffers, audio.max_gap_us, audio.budget_us, audio.starts, audio.overlap, TEXTURED, CONTENT_NAME);
 #endif
         }
     }
