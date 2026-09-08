@@ -74,7 +74,8 @@ just build --views 1             # 1, 2, 3, or 4
 just build --views 3 --autotour 1 # animated demonstration
 just build --profile 1           # scene/submission times and triangle count
 just build --validate 1          # libdragon RDP command validation (slow)
-just build --benchmark 1         # three repeatable four-controller workloads
+just build --benchmark 1         # graphics + audio, including four overlapping hops
+just build --benchmark 1 --audio 0 # identical workload with audio disabled
 just build --content robot-courtyard # alternate character, palette, motion and scenery
 just build                       # restores the normal four-player configuration
 ```
@@ -94,6 +95,8 @@ rendering, with bounded catch-up after a pause.
 - `src/main.c`: libdragon/Tiny3D adapter for controllers, timing, camera
   matrices, visibility tests, RSP command blocks, depth and presentation.
 - `src/bridge.h`: the explicit fixed-width ABI/data contract.
+- `src/sound.c`: streamed music, per-player effects, and cooperative audio service.
+- `assets/audio/`: original ready-to-convert WAV sources; [audio guide](docs/audio.md).
 - `src/content-*.zig`: selectable mesh, palette, motion and environment recipes.
 - `scripts/model-recipes.nu`: native Nu scene recipes for the sample model.
 - `scripts/export-mesh.nu`: mesh conversion, validation and Zig export.
@@ -105,7 +108,8 @@ The player jerseys are colored per instance. Feet and arms move while walking,
 ears sway, and all players are depth-tested against the same environment.
 Trees, rocks, mushrooms, and the carrot monument are decorative; the sample
 physics implements ground, world bounds, and player separation, not general
-mesh collision. No audio, save system, or networking is included.
+mesh collision. An original music loop and overlapping per-player hop sounds
+exercise libdragon's RSP mixer. No save system or networking is included.
 
 ```sh
 just models  # export saved .blend files; set BLENDER for another executable location
@@ -123,16 +127,17 @@ coordinates, capacity checks and explicit source generation commands.
 
 ## Verification and limits
 
-`just test` runs native Nu mesh-validation checks and 21 Zig tests for each
-content pack, covering controller isolation, lifecycle transitions, button edges,
-world bounds, view layouts, RSP packing/budgets, frame-slot isolation and
+`just test` runs native Nu mesh-validation checks and 25 Zig tests for each
+content pack, covering controller isolation, lifecycle transitions, audio events,
+button edges, world bounds, view layouts, RSP packing/budgets, frame-slot isolation and
 animation bounds throughout all three benchmark phases. `just verify` checks the ROM
 header, O64 ELF, implicit runtime calls, and the reserved global pointer.
 
 GitHub Actions runs separate **Check** and **Test** workflows on main pushes and
-pull requests. Check runs Zig formatting, native Nu parsing and SDK fixtures,
-and actionlint. Test runs the host suite in Debug and ReleaseSmall, then builds and
-verifies all four default layouts, validation and benchmark ROMs, and two
+pull requests. Check runs Zig formatting, native Nu parsing, SDK fixtures,
+original WAV verification, audio/benchmark tests, and actionlint. Test runs the
+host suite in Debug and ReleaseSmall, then builds and verifies all four default
+layouts, validation and audio-on/off benchmark ROMs, and two
 alternate-content ROMs. Download those
 ROMs from the Test run's artifacts. Run the same commands locally:
 
@@ -156,7 +161,10 @@ See [the ares verification record](docs/verification.md) and
 [the Zig/libdragon architecture](docs/architecture.md), especially before
 changing compiler flags or the ABI bridge. Transforms, clipping, triangle setup and rasterization now run on the N64
 coprocessors. The final four-player stress run sustained **51–60 FPS across
-115 one-second samples**; see the verification record for measurements and pictures.
+115 one-second samples** before audio was integrated; see the verification record
+for measurements and pictures. Combined graphics/audio FPS and listening checks
+remain pending. [Audio benchmark instructions](docs/audio.md#benchmark-comparison)
+keep the new simultaneous-hop workload separate from those historical captures.
 
 To check a captured benchmark log:
 

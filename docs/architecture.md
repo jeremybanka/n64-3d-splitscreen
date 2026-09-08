@@ -32,6 +32,21 @@ The **RDP** shades and rasterizes them with antialiasing and depth comparison.
 RDPQ continues to own drawing state, clears, the Z surface, HUD and presentation.
 No CPU projection, triangle clipping or framebuffer rasterizer remains.
 
+## Audio alongside rendering
+
+`src/sound.c` owns five libdragon mixer channels: music and one hop voice per
+physical player. Zig only emits a drained scalar event word after gameplay
+steps. Pause, reset and participation removal clear stale events and stop the
+appropriate voices. See [audio lifecycle and assets](audio.md).
+
+Audio is produced cooperatively with `audio_write_begin`, `mixer_poll`, and
+`audio_write_end`. The mixer shares the RSP with Tiny3D. The display wait uses
+`display_try_get`, and frame-fence waiting uses `rspq_flush` and
+`rspq_syncpoint_check`, leaving room to service audio while waiting. Services
+also run around simulation and between views. No audio mixer work runs inside
+an interrupt callback. Diagnostic builds report mixing cost and the maximum
+service gap; the buffer-budget guard is not a hardware underrun measurement.
+
 ## Coordinates and asynchronous data
 
 Zig positions retain Q8 precision. The camera matrix converts them to four RSP

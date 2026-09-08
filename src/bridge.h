@@ -22,6 +22,8 @@ uint32_t game_command(uint32_t command);
 #define GAME_STATUS_PAUSED (1u << 9)
 uint32_t game_status(void);
 uint32_t game_benchmark(uint32_t steps);
+/* Drain once after simulation: hops 0..3, stop-player 4..7, music restart 8. */
+uint32_t game_audio_events(void);
 uint32_t scene_init(uint32_t unused);
 uint32_t scene_prepare(uint32_t frame);
 /* Packed RSP data and fixed-width camera inputs; no aggregate calls. */
