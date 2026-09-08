@@ -2,12 +2,23 @@
 //! RDPQ owns hardware rasterization, depth, clears, and text.
 const std = @import("std");
 const game = @import("game.zig");
-const rabbit = @import("generated/rabbit.zig");
-const Vec3 = game.Vec3;
+const content = @import("content");
+const character = content.character;
+const character_bounds = blk: {
+    var radius: i32 = 115; // Contact-shadow radius.
+    var top: i32 = 0;
+    for (character.vertices) |v| {
+        const motion = @divTrunc(256, content.stride_divisor) + @divTrunc(256, content.sway_divisor);
+        radius = @max(radius, @as(i32, @intCast(@abs(@as(i32, v.x)) + @abs(@as(i32, v.z)))) + motion + 2);
+        top = @max(top, @as(i32, v.y) + @divTrunc(256, content.bob_divisor));
+    }
+    break :blk .{ .radius = radius, .top = top };
+};
+pub const Vec3 = game.Vec3;
 const Q = game.Q;
-const mul = game.mul;
-const sin = game.sin;
-const cos = game.cos;
+pub const mul = game.mul;
+pub const sin = game.sin;
+pub const cos = game.cos;
 pub const Viewport = extern struct { x: i32, y: i32, w: i32, h: i32 };
 pub const Camera = extern struct { eye: [3]i32, target: [3]i32 };
 // Exactly Tiny3D's two interleaved vertices; normals/UV are unused.
@@ -41,7 +52,7 @@ export var scene_overflow: u32 = 0;
 var vertex_sources: [2048]u16 = undefined;
 var vertex_materials: [2048]u8 = undefined;
 var vertex_shades: [2048]u8 = undefined;
-const Key = struct { p: Vec3, color: u32, source: u16 };
+const Key = struct { p: Vec3, color: u32, source: u16, material: u8, shade: u8 };
 var keys: [64]Key = undefined;
 var mesh: *Mesh = undefined;
 var source_id: u16 = 0xffff;
@@ -102,11 +113,11 @@ fn setVertex(dst: *Packed, index: u32, p: Vec3, color: u32) void {
 fn emitVertex(p: Vec3, color: u32) u8 {
     const b = &mesh.batches[mesh.batch_count - 1];
     for (keys[0..b.vertex_count], 0..) |k, i| {
-        if (k.color == color and k.source == source_id and std.meta.eql(k.p, p)) return @intCast(i);
+        if (k.color == color and k.source == source_id and k.material == material_id and k.shade == shade_id and std.meta.eql(k.p, p)) return @intCast(i);
     }
     const index = mesh.vertex_count;
     setVertex(&mesh.vertices[index / 2], index, p, color);
-    keys[b.vertex_count] = .{ .p = p, .color = color, .source = source_id };
+    keys[b.vertex_count] = .{ .p = p, .color = color, .source = source_id, .material = material_id, .shade = shade_id };
     vertex_sources[index] = source_id;
     vertex_materials[index] = material_id;
     vertex_shades[index] = shade_id;
@@ -123,7 +134,7 @@ fn reserveTriangle() bool {
     if (mesh.batch_count == 0 or mesh.batches[mesh.batch_count - 1].vertex_count > 61) newBatch();
     return scene_overflow == 0;
 }
-fn worldTri(a: Vec3, b: Vec3, c: Vec3, color: u32) void {
+pub fn worldTri(a: Vec3, b: Vec3, c: Vec3, color: u32) void {
     if (!reserveTriangle()) return;
     for ([_]Vec3{ a, b, c }) |p| {
         mesh.indices[mesh.index_count] = emitVertex(p, color);
@@ -140,13 +151,13 @@ fn tint(color: u32, shade: u32) u32 {
     const b = (((color >> 8) & 255) * shade) / 255;
     return (r << 24) | (g << 16) | (b << 8) | 255;
 }
-fn cone(x: i32, z: i32, y: i32, radius: i32, height: i32, color: u32) void {
+pub fn cone(x: i32, z: i32, y: i32, radius: i32, height: i32, color: u32) void {
     for (0..8) |i| {
         const a: i32 = @intCast(i * 32);
         worldCulled(.{ .x = x, .y = y + height, .z = z }, .{ .x = x + mul(sin(a), radius), .y = y, .z = z + mul(cos(a), radius) }, .{ .x = x + mul(sin(a + 32), radius), .y = y, .z = z + mul(cos(a + 32), radius) }, tint(color, @intCast(185 + @divTrunc(cos(a - 32) * 60, Q))));
     }
 }
-fn box(x: i32, z: i32, y: i32, w: i32, d: i32, h: i32, color: u32) void {
+pub fn box(x: i32, z: i32, y: i32, w: i32, d: i32, h: i32, color: u32) void {
     const v = [8]Vec3{
         .{ .x = x - w, .y = y, .z = z - d },     .{ .x = x + w, .y = y, .z = z - d },     .{ .x = x + w, .y = y, .z = z + d },     .{ .x = x - w, .y = y, .z = z + d },
         .{ .x = x - w, .y = y + h, .z = z - d }, .{ .x = x + w, .y = y + h, .z = z - d }, .{ .x = x + w, .y = y + h, .z = z + d }, .{ .x = x - w, .y = y + h, .z = z + d },
@@ -158,90 +169,39 @@ fn box(x: i32, z: i32, y: i32, w: i32, d: i32, h: i32, color: u32) void {
         worldCulled(v[f[0]], v[f[3]], v[f[2]], col);
     }
 }
-fn group() void {
+pub fn group() void {
     if (mesh.batch_count != 0 and mesh.batches[mesh.batch_count - 1].vertex_count != 0) newBatch();
 }
-fn environment() void {
-    // Low-contrast meadow tiles make movement and perspective easy to read.
-    for (0..4) |iz| for (0..4) |ix| {
-        group();
-        const x = (@as(i32, @intCast(ix)) * 8 - 16) * Q;
-        const z = (@as(i32, @intCast(iz)) * 8 - 16) * Q;
-        const col: u32 = if ((ix + iz) % 2 == 0) 0x80ac79ff else 0x86b17dff;
-        worldTri(.{ .x = x, .z = z }, .{ .x = x + 8 * Q, .z = z + 8 * Q }, .{ .x = x + 8 * Q, .z = z }, col);
-        worldTri(.{ .x = x, .z = z }, .{ .x = x, .z = z + 8 * Q }, .{ .x = x + 8 * Q, .z = z + 8 * Q }, col);
-    };
-    group();
-    // A true annulus avoids overlapping coplanar grass/path discs. Its
-    // small offset above the meadow is larger than RDP depth quantization.
-    for (0..16) |i| {
-        const a: i32 = @intCast(i * 16);
-        const b = a + 16;
-        const inner_a = Vec3{ .x = mul(sin(a), 3 * Q), .y = 32, .z = mul(cos(a), 3 * Q) };
-        const outer_a = Vec3{ .x = mul(sin(a), 4 * Q), .y = 32, .z = mul(cos(a), 4 * Q) };
-        const inner_b = Vec3{ .x = mul(sin(b), 3 * Q), .y = 32, .z = mul(cos(b), 3 * Q) };
-        const outer_b = Vec3{ .x = mul(sin(b), 4 * Q), .y = 32, .z = mul(cos(b), 4 * Q) };
-        worldTri(inner_a, outer_a, outer_b, 0xe2cf9fff);
-        worldTri(inner_a, outer_b, inner_b, 0xe2cf9fff);
-    }
-    // Central carrot is a shared landmark, visible from every spawn camera.
-    group();
-    box(0, 0, 0, 90, 90, 45, 0xe1d9baff);
-    cone(0, 0, 45, 75, 380, 0xf1a05eff);
-    cone(-28, 0, 410, 70, 150, 0x548b63ff);
-    cone(45, 10, 405, 60, 120, 0x74a464ff);
-    const trees = [8][2]i32{ .{ -11, -9 }, .{ -5, -13 }, .{ 8, -11 }, .{ 13, -3 }, .{ 10, 10 }, .{ 1, 14 }, .{ -10, 11 }, .{ -14, 1 } };
-    for (trees, 0..) |t, i| {
-        group();
-        const x = t[0] * Q;
-        const z = t[1] * Q;
-        box(x, z, 0, 65, 65, 2 * Q, 0x9c7b5aff);
-        cone(x, z, Q, 2 * Q, 4 * Q, if (i % 2 == 0) 0x54896aff else 0x68996cff);
-        cone(x, z, 2 * Q, 360, 3 * Q, 0x7aaa79ff);
-    }
-    const stones = [6][2]i32{ .{ -7, -6 }, .{ 6, -8 }, .{ 9, 5 }, .{ -8, 5 }, .{ -4, 10 }, .{ 4, 8 } };
-    for (stones, 0..) |p, i| {
-        group();
-        cone(p[0] * Q, p[1] * Q, 0, 140, 120, 0xa7b2a4ff);
-        box(p[0] * Q + 200, p[1] * Q + 100, 0, 25, 25, 85, 0xf4e3c6ff);
-        cone(p[0] * Q + 200, p[1] * Q + 100, 70, 80, 70, if (i % 2 == 0) 0xdc8b7dff else 0xe2bf6dff);
-    }
-    // Distant faceted mountains distinguish the views without extra assets.
-    for (0..8) |i| {
-        group();
-        const a: i32 = @intCast(i * 32);
-        cone(mul(sin(a), 30 * Q), mul(cos(a), 30 * Q), -Q, 8 * Q, (8 + @as(i32, @intCast(i % 3)) * 2) * Q, if (i % 2 == 0) 0x9eb8adff else 0xb2c5b5ff);
-    }
-}
+
 fn colorFor(player: usize, material: u8, shade: u8) u32 {
-    const palette = [6]u32{ 0xf7edd6ff, 0xe98f9fff, 0x26303fff, game.colors[player], 0xfffae6ff, 0x6f9567ff };
-    return tint(palette[material], shade);
+    const color = if (material == content.player_material) game.colors[player] else content.palette[material];
+    return tint(color, shade);
 }
 fn localVertex(id: usize) Vec3 {
-    if (id < rabbit.vertices.len) {
-        const v = rabbit.vertices[id];
+    if (id < character.vertices.len) {
+        const v = character.vertices[id];
         return .{ .x = v.x, .y = v.y, .z = v.z };
     }
-    if (id == rabbit.vertices.len) return .{};
-    const angle = @as(i32, @intCast(id - rabbit.vertices.len - 1)) * 16;
+    if (id == character.vertices.len) return .{};
+    const angle = @as(i32, @intCast(id - character.vertices.len - 1)) * 16;
     return .{ .x = mul(sin(angle), 115), .z = mul(cos(angle), 115) };
 }
 export fn scene_init(_: u32) u32 {
     scene_overflow = 0;
     source_id = 0xffff;
     begin(&scene_environment);
-    environment();
+    content.environment(@This());
     padMesh();
     if (scene_overflow != 0) return 1;
-    // Rabbit batches are indexed by original Blender vertex + face shade.
+    // Character batches are indexed by original Blender vertex + face shade.
     begin(&scene_rabbit);
-    for (rabbit.faces) |f| {
+    for (character.faces) |f| {
         if (!reserveTriangle()) return 1;
         material_id = f.material;
         shade_id = f.shade;
         for ([_]u16{ f.a, f.b, f.c }) |id| {
             source_id = id;
-            const v = rabbit.vertices[id];
+            const v = character.vertices[id];
             mesh.indices[mesh.index_count] = emitVertex(.{ .x = v.x, .y = v.y, .z = v.z }, colorFor(0, f.material, f.shade));
             mesh.index_count += 1;
         }
@@ -250,11 +210,11 @@ export fn scene_init(_: u32) u32 {
     // The contact shadow follows X/Z but stays on the ground during hops.
     for (0..16) |i| {
         if (!reserveTriangle()) return 1;
-        material_id = 5;
+        material_id = content.shadow_material;
         shade_id = 255;
-        for ([_]usize{ rabbit.vertices.len, rabbit.vertices.len + 1 + i, rabbit.vertices.len + 1 + (i + 1) % 16 }) |id| {
+        for ([_]usize{ character.vertices.len, character.vertices.len + 1 + i, character.vertices.len + 1 + (i + 1) % 16 }) |id| {
             source_id = @intCast(id);
-            mesh.indices[mesh.index_count] = emitVertex(localVertex(id), colorFor(0, 5, 255));
+            mesh.indices[mesh.index_count] = emitVertex(localVertex(id), colorFor(0, content.shadow_material, 255));
             mesh.index_count += 1;
         }
         mesh.batches[mesh.batch_count - 1].index_count += 3;
@@ -278,25 +238,26 @@ export fn scene_prepare(frame: u32) u32 {
         const s = sin(p.yaw);
         const c = cos(p.yaw);
         const walk = sin(p.walk);
-        const bob: i32 = if (p.moving) @intCast(@divTrunc(@abs(walk), 18)) else 0;
-        const ear = @divTrunc(sin(@as(i32, @intCast(game.ticks % 256)) + @as(i32, @intCast(player)) * 40), 35);
-        var world: [rabbit.vertices.len + 17]Vec3 = undefined;
-        for (rabbit.vertices, 0..) |v, i| {
+        const bob: i32 = if (p.moving) @intCast(@divTrunc(@abs(walk), content.bob_divisor)) else 0;
+        const ear = @divTrunc(sin(@as(i32, @intCast(game.ticks % 256)) + @as(i32, @intCast(player)) * 40), content.sway_divisor);
+        const shadow_height = content.shadowHeight(p.pos.x, p.pos.z);
+        var world: [character.vertices.len + 17]Vec3 = undefined;
+        for (character.vertices, 0..) |v, i| {
             var x: i32 = v.x;
             var z: i32 = v.z;
             if (v.part == 3) x += ear;
-            if (p.moving and (v.part == 1 or v.part == 2)) z += @divTrunc(walk * (if (v.part == 1) @as(i32, 1) else -1), 7);
+            if (p.moving and (v.part == 1 or v.part == 2)) z += @divTrunc(walk * (if (v.part == 1) @as(i32, 1) else -1), content.stride_divisor);
             world[i] = .{ .x = p.pos.x + mul(x, c) + mul(z, s), .y = p.pos.y + v.y + bob, .z = p.pos.z - mul(x, s) + mul(z, c) };
         }
-        for (rabbit.vertices.len..world.len) |id| {
+        for (character.vertices.len..world.len) |id| {
             const local = localVertex(id);
-            world[id] = .{ .x = p.pos.x + local.x, .z = p.pos.z + local.z, .y = if (@abs(p.pos.x) < 4 * Q and @abs(p.pos.z) < 4 * Q) 42 else 10 };
+            world[id] = .{ .x = p.pos.x + local.x, .z = p.pos.z + local.z, .y = shadow_height };
         }
         for (0..scene_rabbit.vertex_count) |i| {
             const dst = &scene_frames[frame][player][i / 2];
             if (i % 2 == 0) dst.pos_a = position(world[vertex_sources[i]]) else dst.pos_b = position(world[vertex_sources[i]]);
         }
-        scene_bounds[player] = .{ @intCast(p.pos.x - Q), @intCast(@min(p.pos.y, 0)), @intCast(p.pos.z - Q), @intCast(p.pos.x + Q), @intCast(p.pos.y + 4 * Q), @intCast(p.pos.z + Q) };
+        scene_bounds[player] = .{ @intCast(p.pos.x - character_bounds.radius), @intCast(@min(p.pos.y, shadow_height)), @intCast(p.pos.z - character_bounds.radius), @intCast(p.pos.x + character_bounds.radius), @intCast(@max(p.pos.y + character_bounds.top, shadow_height)), @intCast(p.pos.z + character_bounds.radius) };
         scene_views[player] = viewport(game.view_count, @intCast(player));
         const cs = sin(p.camera);
         const cc = cos(p.camera);
@@ -330,7 +291,8 @@ test "packed mesh batches satisfy RSP vertex cache and DMA constraints" {
         }
         try std.testing.expectEqual(m.index_count, indices);
     }
-    try std.testing.expectEqual(@as(u32, (rabbit.faces.len + 16) * 3), scene_rabbit.index_count);
+    try std.testing.expectEqual(@as(u32, (character.faces.len + 16) * 3), scene_rabbit.index_count);
+    try std.testing.expectEqual(@as(u32, character.packed_vertex_count), scene_rabbit.vertex_count);
 }
 test "C bridge and Tiny3D vertex layouts agree" {
     try std.testing.expectEqual(@as(usize, 32), @sizeOf(Packed));
