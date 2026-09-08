@@ -246,9 +246,9 @@ int main(void) {
 #if PROFILE || BENCHMARK || defined(RDPQ_VALIDATE)
             debugf("PERF views=%u phase=%u fps=%u cpu_us=%u submit_us=%u triangles=%u "
                 "audio=%u audio_us=%u audio_buffers=%lu audio_gap_us=%lu audio_budget_us=%lu "
-                "audio_sfx=%lu audio_overlap=%lu workload=2 textured=%u content=%s\n",
+                "audio_sfx=%lu audio_overlap=%lu workload=2 textured=%u content=%s collision=%u\n",
                 views, benchmark_phase, fps, transform_us, submit_us, triangles,
-                AUDIO, audio_us, audio.buffers, audio.max_gap_us, audio.budget_us, audio.starts, audio.overlap, TEXTURED, CONTENT_NAME);
+                AUDIO, audio_us, audio.buffers, audio.max_gap_us, audio.budget_us, audio.starts, audio.overlap, TEXTURED, CONTENT_NAME, COLLISION_DEMO);
 #endif
         }
     }

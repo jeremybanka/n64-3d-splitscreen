@@ -105,8 +105,8 @@ participant ownership and fixed-step batching. Scene tests check the additional
 geometry capacity and nondegenerate camera fallback.
 
 `mise run check`, both host optimization modes, and `mise run test:rom` are the
-local/CI checks. The ROM task includes normal and validation collision demos in
-addition to the existing six configurations, with the same O64/global-pointer/
+local/CI checks. The ROM task includes normal, validation and benchmark collision demos,
+including combined textured builds, with the same O64/global-pointer/
 unresolved-call verification. The default playable output is restored afterward.
 
 Visual playtesting, collision-demo FPS, and hardware camera feel remain pending:
@@ -115,3 +115,16 @@ it in a game, walk/hop along every box and the inside L corner with multiple
 players, orbit each camera near a box, and check the validation ROM on the target
 hardware. Slopes, mesh collision, rigid bodies, dynamic obstacles, top surfaces,
 combat shapes and genre-specific physics remain game work.
+
+PERF rows include `collision=0|1`. The checker defaults to collision off and
+rejects missing or mixed tags. Accept an obstacle benchmark explicitly:
+
+```sh
+make BENCHMARK=1 COLLISION_DEMO=1 TEXTURED=1
+python3 scripts/check-performance.py collision-textured.log --audio on --textured on --collision on
+```
+
+Keep captures for different configurations separate. Use `--collision legacy`
+only alongside the other legacy flags for archived captures predating these
+tags. The build matrix includes this combined workload, but its runtime FPS
+and sound still require an actual capture.

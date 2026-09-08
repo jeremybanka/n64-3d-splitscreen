@@ -21,7 +21,7 @@ pub const sin = game.sin;
 pub const cos = game.cos;
 pub const Viewport = extern struct { x: i32, y: i32, w: i32, h: i32 };
 pub const Camera = extern struct { eye: [3]i32, target: [3]i32 };
-// Exactly Tiny3D's two interleaved vertices; normals/UV are unused.
+// Exactly Tiny3D's two interleaved vertices; ground materials use UVs, normals are unused.
 pub const Packed = extern struct {
     pos_a: [3]i16,
     norm_a: u16 = 0,
@@ -479,6 +479,16 @@ test "optional obstacle geometry fits and obstructed cameras retain a usable bas
     }
     try std.testing.expectEqual(@as(u32, 0), scene_init(0));
     try std.testing.expectEqual(decorative_indices + game.arena.obstacles.len * 30, scene_environment.index_count);
+    // Optional features coexist: solid boxes stay flat in a textured world.
+    try std.testing.expectEqual(@as(u32, 0), scene_init(1));
+    try std.testing.expectEqual(decorative_indices + game.arena.obstacles.len * 30, scene_environment.index_count);
+    for (scene_environment.batches[0..scene_environment.batch_count], 0..) |batch, b| {
+        for (batch.vertex_offset..batch.vertex_offset + batch.vertex_count) |i| {
+            const pair = scene_environment.vertices[i / 2];
+            const p = if (i % 2 == 0) pair.pos_a else pair.pos_b;
+            if (p[1] != 0) try std.testing.expectEqual(@as(u32, 0), scene_environment_materials[b]);
+        }
+    }
     game.players[0].pos = .{ .x = 3 * Q };
     game.players[0].camera = 192; // Desired eye lies behind the first wall.
     _ = scene_prepare(0);

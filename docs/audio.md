@@ -124,13 +124,13 @@ assertions as well as numerical acceptance.
 Workload 2 makes close-quarters hops simultaneous. Both audio modes execute that
 identical workload; historical pre-audio captures used workload 1. The checker
 labels untagged logs as historical and rejects mixed audio modes/workloads in
-one capture. `--audio legacy --textured legacy` explicitly selects old captures. Never report the
+one capture. `--audio legacy --textured legacy --collision legacy` explicitly selects old captures. Never report the
 old graphics-only FPS range as a measured audio-enabled result.
 
-Automated coverage includes 26 Zig tests per content pack in Debug/ReleaseSmall,
+Automated coverage includes 37 Zig tests per content pack in Debug/ReleaseSmall,
 native asset/workload tests, C material-state tests, original WAV verification,
-eight native audio and benchmark test groups, and seventeen ROM/ABI variants
-covering layouts, validation, both benchmark audio modes, content packs and
+eight native audio and benchmark test groups, and twenty-two ROM/ABI variants
+covering layouts, validation, both benchmark audio modes, collision combinations, content packs and
 textured builds. Listening, actual buffer
 starvation and combined performance observations remain pending.
 

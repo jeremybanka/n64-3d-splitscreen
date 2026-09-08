@@ -180,7 +180,7 @@ To check a captured benchmark log:
 
 ```sh
 nu --no-config-file scripts/check-performance.nu path/to/ares-isviewer.log --textured off
-# Use --textured on for the texture demo; --textured legacy for historical logs.
+# Use --textured on for the texture demo; --audio legacy --textured legacy --collision legacy for historical logs.
 ```
 
 The framebuffer is 320×240 at 16 bpp, triple buffered, with one shared 16-bit
