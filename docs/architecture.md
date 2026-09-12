@@ -90,8 +90,8 @@ bridge and use the C API directly from Zig.
 
 ## Extending the sample
 
-Select a content module with `make CONTENT=meadow` (the default) or
-`make CONTENT=robot-courtyard`. Each supplies the mesh, palette, animation
+Select a content module with `just build --content meadow` (the default) or
+`just build --content robot-courtyard`. Each supplies the mesh, palette, animation
 divisors, shadow height and `environment(draw)` recipe. See the
 [asset workflow](../assets/README.md) to export edited Blender sources or add a
 pack. Keep scenery groups small enough for useful frustum culling.

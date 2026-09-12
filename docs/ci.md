@@ -28,7 +28,7 @@ SummerCart64 task, so normal development and CI do not install it.
 ## Test
 
 The two **Zig (Debug)** and **Zig (ReleaseSmall)** jobs each run the full host
-suite for both content packs, plus eight pure-Python mesh-validation tests,
+suite for both content packs, plus native Nu mesh-validation checks,
 with a five-minute timeout. Debug preserves runtime safety checks;
 ReleaseSmall exercises the optimization mode used for the N64 object. A matrix
 failure does not cancel the other configuration.
@@ -80,7 +80,7 @@ pointer. The task leaves the normal four-player ROM as the default output.
 The `n64-roms-<commit>` artifact contains all eight `.z64` variants and
 `SHA256SUMS`, retained for 14 days. These checks establish that the game builds
 and meets the static ABI contract. They do not boot the ROM or measure FPS.
-Blender-specific integration tests are optional locally (`mise run test:models`);
+Blender-specific integration tests are optional locally (`just test-models`);
 CI checks generated data without requiring Blender.
 Visual correctness, input behavior in the emulator, RDPQ runtime validation,
 and the 40+ FPS target still use the [ares verification procedure](verification.md).

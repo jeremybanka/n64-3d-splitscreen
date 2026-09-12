@@ -20,19 +20,16 @@ hardware adapter and its Bunny Meadow template HUD are shared by both packs.
 1. Edit a checked-in `.blend`, or save your own copy. Keep the exported mesh
    objects in the explicit `Character` collection; nested collections work too.
    Keep preview floors, cameras and lights outside that collection.
-2. Save the source in Blender. Run `mise run models` to export both saved sources,
+2. Save the source in Blender. Run `just models` to export both saved sources,
    or use the command below for a single source/collection/output.
-3. Run `mise run test` and build the chosen pack with `make CONTENT=meadow` or
-   `make CONTENT=robot-courtyard`. Reload the resulting ROM in the emulator.
+3. Run `just test` and build the chosen pack with `just build --content meadow`
+   or `just build --content robot-courtyard`. Reload the resulting ROM in the emulator.
 4. Commit the edited `.blend`, generated `.zig`, and any changed content recipe
    together. Export never saves the source or regenerates the character.
 
-```sh
-# Replace this path or set BLENDER when using make models on another platform.
-/Applications/Blender.app/Contents/MacOS/Blender \
-  --background --python-exit-code 1 --python scripts/export-mesh.py -- \
-  --source assets/rabbit.blend --collection Character \
-  --output src/generated/rabbit.zig
+```nu
+# Set BLENDER to your executable when using another location/platform.
+nu --no-config-file scripts/export-mesh.nu --source assets/rabbit.blend --collection Character --output src/generated/rabbit.zig
 ```
 
 Export uses saved object transforms and evaluated mesh modifiers, triangulates
@@ -40,6 +37,13 @@ the evaluated mesh, and sorts objects by name for repeatable output. It does not
 modify the editable geometry. Apply or realize instances before export; this is
 a mesh workflow, not a scene graph or skeletal animation exporter. Rename objects
 freely, but expect the generated ordering and batch packing to change.
+
+Nushell owns the commands, mesh validation, palette and shade calculation,
+mirrored winding correction, Zig serialization and atomic output replacement.
+The only Python file in this workflow, `scripts/blender-adapter.py`, runs inside
+Blender to open/save `.blend` files and translate evaluated bpy data to/from
+JSON. It contains no subprocess orchestration, export policy or test logic.
+Normal builds use pinned Nu through mise and never need a system Python.
 
 ## Coordinate and material contract
 
@@ -83,7 +87,7 @@ remain in `game.zig`. The meadow recipe retains its elevated path shadow; the
 courtyard supplies a flat-floor shadow height.
 
 To add a third pack, copy a content module, select its generated mesh, add its
-name to Make's `CONTENT` choices and the host/ROM test scripts, and ensure Make
+name to the build script's `--content` choices and host/ROM tests, and ensure the build
 tracks its generated inputs. Actor culling bounds derive from the mesh and gait.
 If a fork changes motion, world scale or capacity, update exporter headroom checks
 alongside the runtime and rerun the animation-bounds test. The existing C symbol
@@ -95,19 +99,22 @@ The generation scripts are separate from export and require an explicit output.
 They refuse to replace an existing source unless `--overwrite` is also supplied.
 This operation discards manual edits at that chosen path.
 
-```sh
-blender --background --python-exit-code 1 --python scripts/make-rabbit.py -- \
-  --output /tmp/new-rabbit.blend
-blender --background --python-exit-code 1 --python scripts/make-robot.py -- \
-  --output /tmp/new-robot.blend
+```nu
+nu --no-config-file scripts/make-model.nu rabbit --output /tmp/new-rabbit.blend
+nu --no-config-file scripts/make-model.nu robot --output /tmp/new-robot.blend
 ```
 
 The rabbit generator optionally accepts `--preview /tmp/rabbit.png` for a studio
-render. Use `export-mesh.py` afterward to generate ROM data.
+render. The scene recipes, geometry parameters and metadata live in
+`scripts/model-recipes.nu`; the adapter applies that declarative data through
+bpy. Use `export-mesh.nu` afterward to generate ROM data. Blender may reorder
+equivalent triangles when creating fresh primitives; exporting the same saved
+source remains deterministic.
 
-`mise run test` runs the pure-Python validation suite and both packs' Zig tests.
-`mise run test:models` optionally runs Blender integration tests: reproducible
-exports, source SHA-256 preservation, previous-output preservation on failure,
-per-face materials, palette errors and mirrored winding. The full ROM suite
+`just test` runs the native Nu validation suite and both packs' Zig tests.
+`just test-models` optionally runs the native Nu Blender integration tests:
+byte-for-byte exports, source SHA-256 preservation, recipe mesh equivalence,
+overwrite protection, previous-output preservation on failure, per-face
+materials, palette errors and mirrored winding. The full ROM suite
 also builds the alternate four-player and validation configurations. Static
 build checks do not establish the alternate pack's hardware FPS or visual QA.
