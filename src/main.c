@@ -14,6 +14,10 @@ static const color_t player_colors[4] = {
 
 static void input(void) {
     joypad_poll();
+    uint32_t connected = 0;
+    for (unsigned i = 0; i < 4; i++)
+        if (joypad_is_connected((joypad_port_t)i)) connected |= 1u << i;
+    game_connections(connected);
     for (unsigned i = 0; i < 4; i++) {
         joypad_port_t port = (joypad_port_t)i;
         joypad_inputs_t stick = joypad_get_inputs(port);
@@ -29,11 +33,15 @@ static void input(void) {
         if (held.c_left || held.l) word |= 1 << 17;
         if (held.c_right || held.r) word |= 1 << 18;
         if (pressed.b) word |= 1 << 19;
-        game_input(word);
-        if (i == 0) {
-            if (pressed.start) game_command(1);
-            if (pressed.z) game_command(2);
-            if (pressed.c_down) game_command(3);
+        if (held.a) word |= 1 << 20;
+        if (held.b) word |= 1 << 21;
+        if (held.start || held.z || held.c_down || held.c_up) word |= 1 << 22;
+        bool ready = game_input(word) != 0;
+        if (i == 0 && ready) {
+            if (pressed.start) game_command(GAME_CYCLE_VIEWS);
+            if (pressed.z) game_command(GAME_TOGGLE_TOUR);
+            if (pressed.c_down) game_command(GAME_RESTART);
+            if (pressed.c_up) game_command(GAME_TOGGLE_PAUSE);
         }
     }
 }
@@ -98,11 +106,12 @@ static void prepare_scene(void) {
     submit_us = 0;
 }
 
-static void draw_scene(unsigned player) {
+static void draw_scene(unsigned view, uint32_t status) {
     uint64_t start_time = get_ticks_us();
-    viewport_t v = scene_views[player];
-    camera_t *cam = &scene_cameras[player];
-    T3DViewport *vp = &viewports[frame_slot][player];
+    unsigned player = game_view_port(view);
+    viewport_t v = scene_views[view];
+    camera_t *cam = &scene_cameras[view];
+    T3DViewport *vp = &viewports[frame_slot][view];
     T3DVec3 eye = {{cam->eye[0]/64.0f, cam->eye[1]/64.0f, cam->eye[2]/64.0f}};
     T3DVec3 target = {{cam->target[0]/64.0f, cam->target[1]/64.0f, cam->target[2]/64.0f}};
     t3d_viewport_set_area(vp, v.x, v.y, v.w, v.h);
@@ -131,6 +140,7 @@ static void draw_scene(unsigned player) {
     }
     t3d_state_set_drawflags(T3D_FLAG_SHADED | T3D_FLAG_DEPTH | T3D_FLAG_CULL_BACK);
     for (unsigned p = 0; p < 4; p++) {
+        if (!(status & (1u << (16 + p)))) continue;
         if (!t3d_frustum_vs_aabb_s16(&vp->viewFrustum, scene_bounds[p], scene_bounds[p]+3)) continue;
         rspq_block_run(rabbit_blocks[frame_slot][p]);
         triangles += scene_rabbit.index_count/3;
@@ -138,7 +148,8 @@ static void draw_scene(unsigned player) {
     rdpq_set_mode_fill(player_colors[player]);
     rdpq_fill_rectangle(v.x, v.y, v.x + v.w, v.y + 2);
     rdpq_set_mode_standard();
-    rdpq_text_printf(NULL, 1, v.x + 6, v.y + 13, "P%d", player + 1);
+    rdpq_text_printf(NULL, 1, v.x + 6, v.y + 13, "P%d%s", player + 1,
+        BENCHMARK ? " TEST" : status & (1u << (12 + player)) ? "" : " OFF");
     submit_us += get_ticks_us() - start_time;
 }
 
@@ -156,8 +167,8 @@ int main(void) {
     surface_t depth = surface_alloc(FMT_RGBA16, 320, 240);
     game_reset(0);
     init_scene();
-    for (unsigned i = 0; i < INITIAL_VIEWS % 4; i++) game_command(1);
-    if (AUTOTOUR) game_command(2);
+    for (unsigned i = 0; i < INITIAL_VIEWS % 4; i++) game_command(GAME_CYCLE_VIEWS);
+    if (AUTOTOUR) game_command(GAME_TOGGLE_TOUR);
     debugf("Bunny Meadow: Zig simulation / RDPQ rasterization / 4 controllers\n");
     uint64_t previous = get_ticks_us();
     uint32_t accumulator = 0;
@@ -172,16 +183,18 @@ int main(void) {
         accumulator += elapsed > 250005 ? 250005 : (uint32_t)elapsed;
         unsigned steps = accumulator / 16667;
         accumulator %= 16667;
-        input();
         if (BENCHMARK) benchmark_phase = game_benchmark(steps);
-        else game_tick(steps);
+        else {
+            input();
+            game_tick(steps);
+        }
         uint32_t status = game_status();
         unsigned views = status & 255;
         rdpq_attach(screen, &depth);
         rdpq_clear(RGBA32(42,61,57,255));
         rdpq_clear_z(ZBUF_MAX);
         prepare_scene();
-        for (unsigned i = 0; i < views; i++) draw_scene(i);
+        for (unsigned i = 0; i < views; i++) draw_scene(i, status);
         rdpq_set_scissor(0, 0, 320, 240);
         if (views >= 3) {
             // Keep viewport scissor X aligned to four pixels for RDP fill
@@ -190,14 +203,15 @@ int main(void) {
             rdpq_fill_rectangle(159, views == 3 ? 121 : 16, 161, 224);
         }
         rdpq_set_mode_standard();
-        rdpq_text_printf(NULL, 1, 7, 11, "BUNNY MEADOW   /   %d PLAYER%s", views, views == 1 ? "" : "S");
+        rdpq_text_printf(NULL, 1, 7, 11, "BUNNY MEADOW   /   %d VIEW%s", views, views == 1 ? "" : "S");
         rdpq_text_printf(NULL, 1, 269, 11, "%d FPS", fps);
-        rdpq_text_print(NULL, 1, 7, 234, "START VIEWS   A HOP   C/L/R LOOK   Z TOUR");
+        rdpq_text_print(NULL, 1, 7, 234, "START VIEWS   A HOP   C-UP PAUSE   Z TOUR");
 #if PROFILE
         rdpq_text_printf(NULL, 1, 8, 219, "CPU %ums / SUBMIT %ums / %u TRI", transform_us/1000, submit_us/1000, triangles);
 #endif
         if (BENCHMARK) rdpq_text_printf(NULL, 1, 230, 206, "TEST %u", benchmark_phase);
-        if (status & 256) rdpq_text_print(NULL, 1, 230, 219, "AUTO TOUR");
+        if (status & GAME_STATUS_PAUSED) rdpq_text_print(NULL, 1, 230, 219, "PAUSED");
+        else if (status & GAME_STATUS_TOUR) rdpq_text_print(NULL, 1, 230, 219, "AUTO TOUR");
         rdpq_detach_show();
         frame_fences[frame_slot] = rspq_syncpoint_new();
         frame_pending[frame_slot] = true;

@@ -3,9 +3,23 @@
 #include <stdint.h>
 /* Callable seam: at most one uint32_t argument and one uint32_t result. */
 uint32_t game_reset(uint32_t unused);
+/* Mask bit N always refers to controller/player port N; upper bits ignored. */
+uint32_t game_connections(uint32_t mask);
+uint32_t game_participants(uint32_t mask);
+uint32_t game_views(uint32_t mask); /* Visible subset of participants. */
+uint32_t game_view_port(uint32_t slot); /* Ascending physical port, or 4. */
+uint32_t game_pause(uint32_t paused); /* Zero resumes; nonzero pauses. */
+/* Input: signed X/Y bytes, A press 16, look left/right 17/18, B press 19,
+ * held A/B 20/21, any held sample command 22, physical port 30/31.
+ * Returns 1 when sample commands may be handled, 0 while disconnected/rearming. */
 uint32_t game_input(uint32_t packed);
 uint32_t game_tick(uint32_t steps);
+enum { GAME_CYCLE_VIEWS = 1, GAME_TOGGLE_TOUR, GAME_RESTART, GAME_TOGGLE_PAUSE };
 uint32_t game_command(uint32_t command);
+/* Status: count 0..7, tour 8, pause 9, connections 12..15,
+ * participants 16..19, visible ports 20..23. */
+#define GAME_STATUS_TOUR (1u << 8)
+#define GAME_STATUS_PAUSED (1u << 9)
 uint32_t game_status(void);
 uint32_t game_benchmark(uint32_t steps);
 uint32_t scene_init(uint32_t unused);
