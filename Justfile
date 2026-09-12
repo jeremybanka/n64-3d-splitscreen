@@ -63,7 +63,10 @@ deploy: build sc64deployer
 debug: sc64deployer
     ^.build/bin/sc64deployer debug
 
-# Blender is the explicit bpy language boundary, replaced by the asset PR adapter.
-models:
-    let blender = $env.BLENDER? | default '/Applications/Blender.app/Contents/MacOS/Blender'
-    ^$blender --background --python scripts/make-rabbit.py
+# Regenerate the original rabbit source and export it; optional PNG preview path.
+models preview='':
+    def main [preview: string] {
+        let options = if $preview == '' { [] } else { [--preview $preview] }
+        ^nu --no-config-file scripts/make-model.nu rabbit --output assets/rabbit.blend --overwrite ...$options
+        ^nu --no-config-file scripts/export-mesh.nu --source assets/rabbit.blend --collection Character --output src/generated/rabbit.zig
+    }

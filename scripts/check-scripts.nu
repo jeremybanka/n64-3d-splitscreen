@@ -7,5 +7,6 @@ def main [] {
     # Blender's bpy API is the approved Python language boundary; it cannot be
     # imported by host Nu. Its integration check belongs to the asset workflow.
     command $nu.current-exe [--no-config-file scripts/test-sdk-identity.nu]
-    print 'PASS: native Nu scripts parse and SDK fixtures pass'
+    command $nu.current-exe [--no-config-file scripts/test-mesh-format.nu]
+    print 'PASS: native Nu scripts parse; SDK and mesh fixtures pass'
 }

@@ -89,7 +89,9 @@ rendering, with bounded catch-up after a pause.
 - `src/main.c`: libdragon/Tiny3D adapter for controllers, timing, camera
   matrices, visibility tests, RSP command blocks, depth and presentation.
 - `src/bridge.h`: the explicit fixed-width ABI/data contract.
-- `scripts/make-rabbit.py`: reproducible Blender model and mesh exporter.
+- `scripts/model-recipes.nu`: native Nu scene recipes for the sample model.
+- `scripts/export-mesh.nu`: mesh conversion, validation and Zig export.
+- `scripts/blender-adapter.py`: the minimal Blender `bpy` API adapter.
 - `assets/rabbit.blend`: editable character and studio scene.
 - `src/generated/rabbit.zig`: ROM-ready indexed mesh (130 vertices / 188 triangles).
 
@@ -101,11 +103,18 @@ mesh collision. No audio, save system, or networking is included.
 
 ```sh
 just models  # Blender on macOS; set BLENDER for another executable location
+# Optional preview: just models assets/rabbit-preview.png
 ```
 
-The Blender script rebuilds both the editable `.blend` and the generated Zig
-mesh. To preserve manual edits, work in a copy of the `.blend` or adapt the
-export script instead of regenerating over your edits.
+This task explicitly regenerates `assets/rabbit.blend` and exports its Character
+collection to the Zig mesh. It overwrites manual source edits. Nu owns scene
+recipes, mesh conversion and validation; the only Python file calls Blender's
+`bpy` API through a JSON request/response adapter. To preserve an edited source,
+export it directly without regenerating it:
+
+```sh
+nu scripts/export-mesh.nu --source assets/rabbit.blend --collection Character --output src/generated/rabbit.zig
+```
 
 ![Rabbit model](assets/rabbit-preview.png)
 

@@ -1,8 +1,9 @@
 # Reproducible SDK reuse and incremental builds
 
 Run `mise install` for pinned Nushell 0.115.1 and Just 1.58.0.
-Project scripts use native Nushell; the Blender API remains an explicit Python
-language boundary. The source revision and GCC
+Project scripts use native Nushell. The only Python file, `blender-adapter.py`,
+calls Blender's `bpy` API through JSON; Nu owns model recipes, conversion,
+validation and export. The source revision and GCC
 version are pinned in `scripts/sdk-identity.nu`; the official CI compiler image
 remains pinned by digest in `scripts/bootstrap-ci-toolchain.nu`.
 
