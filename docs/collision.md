@@ -1,8 +1,8 @@
 # Integer arena queries and the optional obstacle demo
 
-`make COLLISION_DEMO=1` adds three solid gray/brown boxes to the meadow. Players
+`just build --collision 1` adds three solid gray/brown boxes to the meadow. Players
 slide along their sides and their cameras shorten when a box blocks the view.
-`make` restores the original decorative meadow. Trees, rocks, mushrooms and the
+`just build` restores the original decorative meadow. Trees, rocks, mushrooms and the
 carrot remain decorative; collision is not inferred from those meshes.
 
 The generic implementation is `src/collision.zig`. The explicit obstacle layout,
@@ -104,7 +104,7 @@ invalid-start recovery, bounded movement stress, four-player separation,
 participant ownership and fixed-step batching. Scene tests check the additional
 geometry capacity and nondegenerate camera fallback.
 
-`mise run check`, both host optimization modes, and `mise run test:rom` are the
+`just check`, both host optimization modes, and `just test-rom` are the
 local/CI checks. The ROM task includes normal, validation and benchmark collision demos,
 including combined textured builds, with the same O64/global-pointer/
 unresolved-call verification. The default playable output is restored afterward.
@@ -120,8 +120,8 @@ PERF rows include `collision=0|1`. The checker defaults to collision off and
 rejects missing or mixed tags. Accept an obstacle benchmark explicitly:
 
 ```sh
-make BENCHMARK=1 COLLISION_DEMO=1 TEXTURED=1
-python3 scripts/check-performance.py collision-textured.log --audio on --textured on --collision on
+just build --benchmark 1 --collision 1 --textured 1
+nu --no-config-file scripts/check-performance.nu collision-textured.log --audio on --textured on --collision on
 ```
 
 Keep captures for different configurations separate. Use `--collision legacy`
