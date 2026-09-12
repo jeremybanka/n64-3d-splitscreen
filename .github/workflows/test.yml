@@ -16,7 +16,7 @@ concurrency:
 
 defaults:
   run:
-    shell: bash
+    shell: nu --no-config-file {0}
 
 jobs:
   Zig:
@@ -30,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
-      - run: mise run test -O "${{ matrix.optimize }}"
+      - run: just test "${{ matrix.optimize }}"
 
   ROM:
     name: N64 ROM
@@ -46,21 +46,20 @@ jobs:
         with:
           path: .build/libdragon
           # No fallback keys: a changed SDK pin must trigger a fresh build.
-          key: n64-sdk-ubuntu-24.04-${{ runner.arch }}-${{ hashFiles('scripts/bootstrap-libdragon.sh', 'scripts/bootstrap-ci-toolchain.sh') }}
+          key: n64-sdk-ubuntu-24.04-${{ runner.arch }}-${{ hashFiles('scripts/bootstrap-libdragon.nu', 'scripts/bootstrap-ci-toolchain.nu', 'scripts/sdk-identity.nu', 'scripts/common.nu', 'mise.toml') }}
 
       - name: Install SDK Build Dependencies
         if: steps.sdk.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update
-          sudo apt-get install --no-install-recommends -y \
-            build-essential ca-certificates libgmp10 libmpc3 libmpfr6 zlib1g-dev
+          sudo apt-get install --no-install-recommends -y build-essential ca-certificates libgmp10 libmpc3 libmpfr6 zlib1g-dev
 
       - name: Install Pinned N64 Compiler
         if: steps.sdk.outputs.cache-hit != 'true'
-        run: mise exec -- ./scripts/bootstrap-ci-toolchain.sh
+        run: nu --no-config-file scripts/bootstrap-ci-toolchain.nu
 
       - name: Build SDK and Tiny3D
-        run: mise run setup
+        run: just setup
 
       - name: Save N64 SDK
         if: steps.sdk.outputs.cache-hit != 'true'
@@ -69,8 +68,11 @@ jobs:
           path: .build/libdragon
           key: ${{ steps.sdk.outputs.cache-primary-key }}
 
+      - name: Verify Incremental Build Dependencies
+        run: just test-build
+
       - name: Build and Verify ROM Variants
-        run: mise run test:rom
+        run: just test-rom
 
       - name: Upload Verified ROMs
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

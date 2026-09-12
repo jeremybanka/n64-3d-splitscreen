@@ -32,24 +32,30 @@ the separators.
 
 ## Build and run
 
-Zig 0.16.0, libdragon and Tiny3D revisions are pinned. Mise also installs the CI
-linters. The pinned Rust toolchain is installed on demand by the optional
-SummerCart64 deployment task.
+Mise installs pinned Nushell 0.115.1, Just 1.58.0, Zig 0.16.0 and actionlint.
+The Justfile is the public task interface; native Nushell scripts own builds,
+setup and checks. libdragon and Tiny3D revisions are pinned. The pinned Rust
+toolchain is installed on demand by the optional SummerCart64 deployment task.
 
 ```sh
 mise trust
 mise install
-mise run setup       # SDK + Tiny3D; first SDK build can take a long time
-mise run build
-mise run verify
-mise run emulate     # pinned ares v147, OpenGL 3.2, homebrew mode
+# With mise activated, use just directly; otherwise: mise exec -- just <task>
+just setup       # SDK + Tiny3D; first SDK build can take a long time
+just build
+just verify
+just emulate     # pinned ares v147, OpenGL 3.2, homebrew mode
 ```
 
 Output: **`n64-3d-splitscreen.z64`**. Normal builds use the checked-in rabbit
-mesh and do not require Blender. If the SDK is already installed, set
-`N64_INST=/path/to/libdragon` and run `make` with Zig on `PATH`, or reuse it
-at `.build/libdragon`. Then run `./scripts/bootstrap-tiny3d.sh` once to add
-the local RSP library. No additional Blender plugins or GLTF tools are needed.
+mesh and do not require Blender. Setup records the pinned SDK revision, compiler
+identity, and installed-file hashes; subsequent setup verifies them before reuse.
+For an external SDK, run `N64_INST=/path/to/libdragon nu scripts/bootstrap-libdragon.nu`
+and `N64_INST=/path/to/libdragon nu scripts/bootstrap-tiny3d.nu`, then run
+`N64_INST=/path/to/libdragon just build`. An existing unmarked SDK
+can be verified against its clean pinned source checkout without changing the
+installation. See [SDK verification and recovery](docs/build-reproducibility.md).
+No additional Blender plugins or GLTF tools are needed.
 
 The emulator helper uses the project's pinned ares installation. The
 installed v148 Metal backend flickered on the development machine; v147's
@@ -60,16 +66,18 @@ controller mappings are not replaced by the project.
 Build options also make individual layouts easy to inspect without controllers:
 
 ```sh
-make INITIAL_VIEWS=1           # 1, 2, 3, or 4
-make INITIAL_VIEWS=3 AUTOTOUR=1 # animated demonstration
-make PROFILE=1                # scene/submission times and triangle count
-make VALIDATE=1               # libdragon RDP command validation (slow)
-make BENCHMARK=1              # three repeatable four-controller workloads
-make                          # restores the normal four-player configuration
+just build --views 1             # 1, 2, 3, or 4
+just build --views 3 --autotour 1 # animated demonstration
+just build --profile 1           # scene/submission times and triangle count
+just build --validate 1          # libdragon RDP command validation (slow)
+just build --benchmark 1         # three repeatable four-controller workloads
+just build                       # restores the normal four-player configuration
 ```
 
 Reload the ROM in ares after building. Changes to these options automatically
-rebuild the adapter. The simulation uses a fixed 60 Hz step independently of
+rebuild the adapter. Zig checks its own dependency cache on every build, including
+new imports and embedded assets; unchanged objects do not relink the ROM.
+The simulation uses a fixed 60 Hz step independently of
 rendering, with bounded catch-up after a pause.
 
 ## Make it your game
@@ -81,7 +89,9 @@ rendering, with bounded catch-up after a pause.
 - `src/main.c`: libdragon/Tiny3D adapter for controllers, timing, camera
   matrices, visibility tests, RSP command blocks, depth and presentation.
 - `src/bridge.h`: the explicit fixed-width ABI/data contract.
-- `scripts/make-rabbit.py`: reproducible Blender model and mesh exporter.
+- `scripts/model-recipes.nu`: native Nu scene recipes for the sample model.
+- `scripts/export-mesh.nu`: mesh conversion, validation and Zig export.
+- `scripts/blender-adapter.py`: the minimal Blender `bpy` API adapter.
 - `assets/rabbit.blend`: editable character and studio scene.
 - `src/generated/rabbit.zig`: ROM-ready indexed mesh (130 vertices / 188 triangles).
 
@@ -92,34 +102,42 @@ physics implements ground, world bounds, and player separation, not general
 mesh collision. No audio, save system, or networking is included.
 
 ```sh
-make models  # Blender on macOS; set BLENDER for another executable location
+just models  # Blender on macOS; set BLENDER for another executable location
+# Optional preview: just models assets/rabbit-preview.png
 ```
 
-The Blender script rebuilds both the editable `.blend` and the generated Zig
-mesh. To preserve manual edits, work in a copy of the `.blend` or adapt the
-export script instead of regenerating over your edits.
+This task explicitly regenerates `assets/rabbit.blend` and exports its Character
+collection to the Zig mesh. It overwrites manual source edits. Nu owns scene
+recipes, mesh conversion and validation; the only Python file calls Blender's
+`bpy` API through a JSON request/response adapter. To preserve an edited source,
+export it directly without regenerating it:
+
+```sh
+nu scripts/export-mesh.nu --source assets/rabbit.blend --collection Character --output src/generated/rabbit.zig
+```
 
 ![Rabbit model](assets/rabbit-preview.png)
 
 ## Verification and limits
 
-`mise run test` runs 12 host tests covering controller isolation, button edges,
+`just test` runs 12 host tests covering controller isolation, button edges,
 world bounds, view layouts, RSP packing/budgets, frame-slot isolation and
-animation bounds throughout all three benchmark phases. `mise run verify` checks the ROM
+animation bounds throughout all three benchmark phases. `just verify` checks the ROM
 header, O64 ELF, implicit runtime calls, and the reserved global pointer.
 
 GitHub Actions runs separate **Check** and **Test** workflows on main pushes and
-pull requests. Check runs Zig formatting, ShellCheck, Python syntax checks, and
-actionlint. Test runs the host suite in Debug and ReleaseSmall, then builds and
+pull requests. Check runs Zig formatting, native Nu parsing and SDK fixtures,
+and actionlint. Test runs the host suite in Debug and ReleaseSmall, then builds and
 verifies all four layouts plus validation and benchmark ROMs. Download those
 ROMs from the Test run's artifacts. Run the same commands locally:
 
 ```sh
-mise run check
-mise run test
-mise run test -O ReleaseSmall
-mise run setup
-mise run test:rom
+just check
+just test
+just test ReleaseSmall
+just setup
+just test-build
+just test-rom
 ```
 
 The N64 SDK cache includes the pinned compiler image and SDK bootstrap script.
@@ -138,13 +156,13 @@ coprocessors. The final four-player stress run sustained **51–60 FPS across
 To check a captured benchmark log:
 
 ```sh
-python3 scripts/check-performance.py path/to/ares-isviewer.log
+nu scripts/check-performance.nu path/to/ares-isviewer.log
 ```
 
 The framebuffer is 320×240 at 16 bpp, triple buffered, with one shared 16-bit
 Z surface. No Expansion Pak is required by the allocation budget. Real N64,
 SummerCart64, and M64 hardware have not been tested in this adaptation.
 
-For hardware deployment, connect a SummerCart64 and run `mise run deploy`;
-`mise run debug` opens its debug terminal. For SD-card use, copy the `.z64`
+For hardware deployment, connect a SummerCart64 and run `just deploy`;
+`just debug` opens its debug terminal. For SD-card use, copy the `.z64`
 into the cart's ROM library. The ROM has no save type.

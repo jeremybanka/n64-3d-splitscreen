@@ -68,7 +68,7 @@ occupy 16 bytes, and a camera occupies 24 bytes. Packed positions are signed
 This is valid only together with this deliberately restricted interface.
 The private engine has **no unresolved external calls**. In particular,
 compiler-generated `memcpy`/`memset` calls would bypass the interface. The animation loop iterates over player pointers to avoid lowering an
-aggregate copy into a libc call. `verify-zig-abi.sh` rejects such unresolved calls before
+aggregate copy into a libc call. `verify-zig-abi.nu` rejects such unresolved calls before
 linking. It also rejects any use of `$gp` in the private Zig object.
 
 ## Why reserving `$gp` matters
@@ -98,11 +98,11 @@ host test verifies every packed body/shadow vertex throughout the benchmark.
 The normal build uses the unchanged Blender rabbit source. Tiny3D is pinned
 at `ec557373e986b5e041cc102a7ff787eb07921937`, before it adopted vector types
 that exist only in libdragon preview. Its source and library are local to
-`.build/tiny3d`; the SDK is not modified. `scripts/bootstrap-tiny3d.sh` fetches
+`.build/tiny3d`; the SDK is not modified. `scripts/bootstrap-tiny3d.nu` fetches
 and builds only the library. See the [upstream project](https://github.com/HailToDodongo/tiny3d)
 and its [MIT license](licenses/Tiny3D.txt).
 
-Run `make BENCHMARK=1` after a renderer change, record ISViewer diagnostics,
-and use `scripts/check-performance.py` to check all three 20-second workloads.
+Run `just build --benchmark 1` after a renderer change, record ISViewer diagnostics,
+and use `scripts/check-performance.nu` to check all three 20-second workloads.
 `PROFILE=1` adds CPU/submission timings; `VALIDATE=1` enables RDPQ validation
 and is deliberately excluded from performance acceptance.

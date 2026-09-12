@@ -1,7 +1,7 @@
 # Local documentation
 
 This directory is deliberately usable without an internet connection after
-`mise run docs`.
+`just docs`.
 
 - `zig/language-reference-0.16.0.html` — self-contained Zig 0.16.0 language reference
 - `libdragon/wiki/` — libdragon tutorials, installation notes, and troubleshooting

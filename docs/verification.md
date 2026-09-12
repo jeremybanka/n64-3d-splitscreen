@@ -12,7 +12,7 @@ CPU bottleneck.
 
 ## Repeatable four-player performance test
 
-Build with `make BENCHMARK=1`, reload in ares v147, and record Cartridge
+Build with `just build --benchmark 1`, reload in ares v147, and record Cartridge
 ISViewer output through Tools → Tracer → Log to File. The workload loops
 through three 20-second phases with all four views active:
 
@@ -35,7 +35,7 @@ Benchmark ROM SHA-256:
 `5412acf84a18b6d2746f0bada1106a384c7ded379ff07fb9ffd180fe4a049817`.
 
 ```sh
-python3 scripts/check-performance.py docs/performance.txt
+nu scripts/check-performance.nu docs/performance.txt
 ```
 
 The checker requires four views throughout, at least 15 complete samples
@@ -96,7 +96,7 @@ the corrected layout pictures show a clean ring without the stippled streaks.
 
 ## Hardware command validation and correctness
 
-`make BENCHMARK=1 VALIDATE=1` completed **199 one-second diagnostic samples**
+`just build --benchmark 1 --validate 1` completed **199 one-second diagnostic samples**
 across all three phases with no `RDPQ_VALIDATION` errors or warnings.
 See the [captured validation log](rdpq-validation.txt). Validation adds heavy
 instrumentation overhead, so that build is excluded from performance acceptance.
@@ -111,7 +111,7 @@ packed vertex/mesh layouts, RSP batch budgets, overflow detection, frame-slot
 isolation, and conservative visibility bounds throughout a complete benchmark.
 The ROM verifier confirms N64 big-endian magic, the O64 ELF, no implicit
 external calls from Zig, and a reserved global pointer. Zig formatting,
-shell/Python syntax, and `git diff --check` also pass.
+Nu script parsing, and `git diff --check` also pass.
 
 Live physical gamepads and real N64, M64 or SummerCart64 hardware were not
 available for this run. The benchmark drives the same packed input interface
