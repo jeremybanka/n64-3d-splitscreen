@@ -43,6 +43,7 @@ export def check-memory-capture [text: string, options: record = {}] {
     if $config.schema != '1' or (['audio' 'textured' 'collision' 'benchmark' 'validate'] | any {|key| ($config | get $key) not-in ['0' '1'] }) {
         error make {msg: 'Unsupported or invalid CONFIG'}
     }
+    if ($config.content? | default '' | is-empty) { error make {msg: 'Missing content identity'} }
     if $config.initial_views not-in ['1' '2' '3' '4'] { error make {msg: 'Invalid initial view count'} }
     for key in ['content' 'audio' 'textured' 'collision'] {
         let expected = ($opts | get $key)

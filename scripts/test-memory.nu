@@ -24,6 +24,7 @@ def main [] {
         assert error { check-memory-capture $base $options }
     }
     assert error { check-memory-capture ($base + $base) }
+    assert error { check-memory-capture ($base | str replace ' content=meadow' '') }
     assert error { check-memory-capture ($base | lines | where { $in !~ 'elapsed_ms=60000' } | str join "\n") }
     assert error { check-memory-capture ($base | str replace 'elapsed_ms=60000 ram=4194304 expanded=0 tv=NTSC' 'elapsed_ms=60000 ram=4194304 expanded=0 tv=PAL') }
     assert error { check-memory-capture ($base | lines | where { $in !~ 'elapsed_ms=(20000|30000)' } | str join "\n") }
