@@ -5,6 +5,7 @@ def main [--optimize: string = Debug] {
     cd $root
     ^nu --no-config-file scripts/test-mesh-format.nu
     ^nu --no-config-file scripts/test-texture-material.nu
+    ^nu --no-config-file scripts/test-collision-workload.nu
     ^nu --no-config-file scripts/test-material.nu
     for content in [meadow robot-courtyard] {
         ^zig test -O $optimize --dep content -Mroot=src/scene.zig $'-Mcontent=src/content-($content).zig'

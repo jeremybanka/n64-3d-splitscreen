@@ -109,10 +109,14 @@ def cli-exit-status [] {
     let log = ($directory | path join capture.log)
     let script = ($ROOT | path join scripts check-performance.nu)
     try {
-        capture | lines | each {|line| $line + ' textured=0 content=meadow' } | str join (char nl) | save --raw $log
+        capture | lines | each {|line| $line + ' textured=0 content=meadow collision=0' } | str join (char nl) | save --raw $log
         let valid = (^$nu.current-exe --no-config-file $script $log --samples-per-phase 1 --audio on | complete)
         assert equal $valid.exit_code 0 $valid.stderr
         assert ($valid.stdout | str contains 'PASS: all 3 one-second samples')
+        for flags in [[--textured on] [--collision on]] {
+            let mismatch = (^$nu.current-exe --no-config-file $script $log --samples-per-phase 1 --audio on ...$flags | complete)
+            assert ($mismatch.exit_code != 0) 'CLI must reject mismatched material/collision identity'
+        }
         let invalid = (^$nu.current-exe --no-config-file $script $log --samples-per-phase 1 --audio off | complete)
         assert ($invalid.exit_code != 0)
         assert ($invalid.stderr | str contains 'FAIL: expected audio off, found on')

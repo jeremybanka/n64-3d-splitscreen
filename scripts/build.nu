@@ -30,6 +30,8 @@ export def build-rom [config: record] {
     if $audio not-in [0 1] { fail '--audio must be 0 or 1' }
     let textured = $config.textured? | default 0
     if $textured not-in [0 1] { fail '--textured must be 0 or 1' }
+    let collision = $config.collision? | default 0
+    if $collision not-in [0 1] { fail '--collision must be 0 or 1' }
     let install = sdk
     $env.N64_INST = $install
     let tiny = tiny3d
@@ -57,6 +59,7 @@ export def build-rom [config: record] {
         $'-DINITIAL_VIEWS=($config.views)' $'-DAUTOTOUR=($config.autotour)'
         $'-DPROFILE=($config.profile)' $'-DBENCHMARK=($config.benchmark)' $'-DAUDIO=($audio)'
         $'-DTEXTURED=($textured)' $'-DCONTENT_NAME="($content)"'
+        $'-DCOLLISION_DEMO=($collision)'
     ] | append (if $config.validate == 1 { [-DRDPQ_VALIDATE] } else { [] })
     mut objects = []
     for source in (glob src/*.c | sort) {
@@ -118,15 +121,15 @@ export def build-rom [config: record] {
     }
 }
 
-def main [action: string = 'rom', --views: int = 4, --autotour: int = 0, --profile: int = 0, --validate: int = 0, --benchmark: int = 0, --content: string = meadow, --audio: int = 1, --textured: int = 0] {
+def main [action: string = 'rom', --views: int = 4, --autotour: int = 0, --profile: int = 0, --validate: int = 0, --benchmark: int = 0, --content: string = meadow, --audio: int = 1, --textured: int = 0, --collision: int = 0] {
     # Arguments are checked before any build output is touched.
     if $views not-in [1 2 3 4] { fail '--views must be 1, 2, 3, or 4' }
-    for value in [$autotour $profile $validate $benchmark $audio $textured] { if $value not-in [0 1] { fail 'Build switches must be 0 or 1' } }
+    for value in [$autotour $profile $validate $benchmark $audio $textured $collision] { if $value not-in [0 1] { fail 'Build switches must be 0 or 1' } }
     check-content $content
     cd $ROOT
     match $action {
         object => { build-object $content }
-        rom => { build-rom {views: $views, autotour: $autotour, profile: $profile, validate: $validate, benchmark: $benchmark, content: $content, audio: $audio, textured: $textured} }
+        rom => { build-rom {views: $views, autotour: $autotour, profile: $profile, validate: $validate, benchmark: $benchmark, content: $content, audio: $audio, textured: $textured, collision: $collision} }
         clean => { rm --recursive --force build $'($ROM).z64' }
         _ => { fail $'Unknown build action: ($action)' }
     }

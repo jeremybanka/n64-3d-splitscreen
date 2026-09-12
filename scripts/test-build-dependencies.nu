@@ -125,7 +125,7 @@ def main [] {
     }
     assert equal (digest $original_libm) $original_hash 'Dependency fixtures must leave the shared SDK unchanged'
     cd $ROOT
-    let config = {views: 4, autotour: 0, profile: 0, validate: 0, benchmark: 0, content: meadow, audio: 1, textured: 0}
+    let config = {views: 4, autotour: 0, profile: 0, validate: 0, benchmark: 0, content: meadow, audio: 1, textured: 0, collision: 0}
     build-rom $config
     let paths = [build/main.o build/sound.o build/material.o build/scene.o build/audio/meadow.wav64 build/audio/hop.wav64 build/n64-3d-splitscreen.dfs build/n64-3d-splitscreen.elf n64-3d-splitscreen.z64]
     let before = snapshot $paths
