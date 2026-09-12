@@ -34,7 +34,7 @@ RAM amount or substitutes an estimate for that run.
 
 ```sh
 # Capture the complete boot/runtime log for the exact ROM being tested.
-python3 scripts/check-memory.py path/to/capture.log \
+nu --no-config-file scripts/check-memory.nu path/to/capture.log \
   --require-base-memory --tv NTSC --minimum-seconds 600 \
   --content meadow --audio 1 --textured 1 --collision 1
 ```

@@ -6,15 +6,15 @@ reference template requires the following bounded acceptance pass against one
 final commit and its own ROM hashes. Unchecked rows are still pending.
 
 - [ ] **Clean build:** a fresh checkout installs/verifies the pinned SDK and
-  tools, passes `mise run check`, both host optimization modes, build-dependency
+  tools, passes `just check`, both host optimization modes, build-dependency
   regressions and every ROM/ABI variant in the final suite. Save the tool/pin
   identities and CI run/artifact links.
 - [ ] **Replace content:** export an edited source without overwriting it and
-  build both `CONTENT=meadow` and `CONTENT=robot-courtyard`; verify mesh bounds,
+  build both `--content meadow` and `--content robot-courtyard`; verify mesh bounds,
   animation/material tags and both scenes in the emulator. Record the exact
   outputs. Automated asset tests alone do not check their appearance.
 - [ ] **Combined workload:** run the final four-player audio + texture +
-  collision benchmark (`AUDIO=1 TEXTURED=1 COLLISION_DEMO=1 BENCHMARK=1`) for
+  collision benchmark (`--audio 1 --textured 1 --collision 1 --benchmark 1`) for
   at least ten minutes in documented NTSC and PAL configurations. Include the
   alternate content in a captured run. Meet the established ≥40 game-FPS
   threshold per benchmark phase, confirm stable emulator speed, and pass the
@@ -40,12 +40,12 @@ Build a final candidate using the exact feature flags and keep its hash next to
 its capture. For example:
 
 ```sh
-make CONTENT=meadow AUDIO=1 TEXTURED=1 COLLISION_DEMO=1 BENCHMARK=1
+just build --content meadow --audio 1 --textured 1 --collision 1 --benchmark 1
 shasum -a 256 n64-3d-splitscreen.z64
-python3 scripts/check-memory.py path/to/ntsc-capture.log \
+nu --no-config-file scripts/check-memory.nu path/to/ntsc-capture.log \
   --require-base-memory --tv NTSC --minimum-seconds 600 \
   --content meadow --audio 1 --textured 1 --collision 1
-python3 scripts/check-performance.py path/to/ntsc-capture.log \
+nu --no-config-file scripts/check-performance.nu path/to/ntsc-capture.log \
   --audio on --textured on --collision on --content meadow
 ```
 
