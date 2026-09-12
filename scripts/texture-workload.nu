@@ -1,5 +1,6 @@
 # Keep texture/content identity separate from frame-rate acceptance.
 export def check-texture-workload [text: string, textured: string = 'off', content: string = 'meadow'] {
+    if $content not-in ['meadow' 'robot-courtyard'] { error make {msg: 'unknown content pack'} }
     let samples = ($text | lines | where { str starts-with 'PERF ' } | each {|line|
         $line | parse --regex '(?P<key>\w+)=(?P<value>\S+)' | reduce --fold {} {|pair, row| $row | upsert $pair.key $pair.value }
     })

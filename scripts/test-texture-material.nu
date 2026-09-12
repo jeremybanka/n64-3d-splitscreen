@@ -17,5 +17,6 @@ def main [] {
         assert error { check-texture-workload $capture on }
     }
     assert error { check-texture-workload ($row + ' textured=0 content=meadow') legacy }
+    assert error { check-texture-workload ($row + ' textured=1 content=unknown') on unknown }
     print 'Texture: source identity, RGBA5551 packing, invalid pixels and workload isolation pass'
 }

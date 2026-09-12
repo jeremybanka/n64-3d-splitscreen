@@ -1,17 +1,17 @@
 # Optional ground texture
 
-`make TEXTURED=1` enables the same small material example in either content
-pack. The default `TEXTURED=0` keeps the existing flat-shaded appearance.
+`just build --textured 1` enables the same small material example in either content
+pack. The default `--textured 0` keeps the existing flat-shaded appearance.
 The original staggered stone pattern lives in `ground.ppm`, an editable 16×16
 ASCII P3 Netpbm image. It is neutral gray so vertex colors retain the meadow or
 courtyard palette.
 
 ```sh
-make TEXTURED=1 CONTENT=meadow
-make TEXTURED=1 CONTENT=robot-courtyard
-make TEXTURED=1 BENCHMARK=1
-make TEXTURED=1 VALIDATE=1 PROFILE=1 AUTOTOUR=1
-make # restore flat-shaded default
+just build --textured 1 --content meadow
+just build --textured 1 --content robot-courtyard
+just build --textured 1 --benchmark 1
+just build --textured 1 --validate 1 --profile 1 --autotour 1
+just build # restore flat-shaded default
 ```
 
 ## Data and resource costs
@@ -67,14 +67,14 @@ Edit `ground.ppm` in a pixel editor that exports ASCII P3 Netpbm, keeping 16×16
 RGB pixels and maximum channel value 255. Then run:
 
 ```sh
-python3 scripts/make-texture.py
-python3 scripts/make-texture.py --check
-mise run test
-make TEXTURED=1 VALIDATE=1
+nu --no-config-file scripts/make-texture.nu
+nu --no-config-file scripts/make-texture.nu --check
+just test
+just build --textured 1 --validate 1
 ```
 
 Commit both the source and `src/generated/ground_texture.h`. Ordinary ROM builds
-use the checked-in header without Python, Blender or an image conversion tool.
+use the checked-in header without Blender or an image conversion tool.
 The converter rejects dimension/channel errors, discards the low three bits of
 each RGB channel and sets the one-bit alpha to opaque. Different dimensions,
 formats, transparency or multiple simultaneous textures require updating the
@@ -86,10 +86,10 @@ provides one material path.
 Every new PERF sample identifies both `textured=0|1` and the content pack. Use:
 
 ```sh
-python3 scripts/check-performance.py capture.log --audio on --textured on --content meadow
-python3 scripts/check-performance.py courtyard.log --audio on --textured on --content robot-courtyard
-python3 scripts/check-performance.py flat.log --audio on --textured off --content meadow
-python3 scripts/check-performance.py docs/performance.txt --audio legacy --textured legacy
+nu --no-config-file scripts/check-performance.nu capture.log --audio on --textured on --content meadow
+nu --no-config-file scripts/check-performance.nu courtyard.log --audio on --textured on --content robot-courtyard
+nu --no-config-file scripts/check-performance.nu flat.log --audio on --textured off --content meadow
+nu --no-config-file scripts/check-performance.nu docs/performance.txt --audio legacy --textured legacy
 ```
 
 The checker rejects mixed or missing identities. Historical untagged logs require
