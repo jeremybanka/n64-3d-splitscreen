@@ -67,7 +67,7 @@ Edit `ground.ppm` in a pixel editor that exports ASCII P3 Netpbm, keeping 16×16
 RGB pixels and maximum channel value 255. Then run:
 
 ```sh
-nu --no-config-file scripts/make-texture.nu
+just texture-assets
 nu --no-config-file scripts/make-texture.nu --check
 just test
 just build --textured 1 --validate 1

@@ -35,8 +35,12 @@ Benchmark ROM SHA-256:
 `5412acf84a18b6d2746f0bada1106a384c7ded379ff07fb9ffd180fe4a049817`.
 
 ```sh
-nu --no-config-file scripts/check-performance.nu docs/performance.txt --audio legacy
+nu --no-config-file scripts/check-performance.nu docs/performance.txt --audio legacy --textured legacy
 ```
+
+This historical capture has no content/material tags. Current captures include
+those tags and must select `--textured off` or `--textured on`; the textured
+workload has no recorded FPS result yet.
 
 The checker requires four views throughout, at least 15 complete samples
 from each phase, no diagnostic errors, and a minimum of 40 FPS in every sample.

@@ -106,5 +106,5 @@ fixtures also run in `just check-scripts` without a real SDK. The dependency
 regression compiles temporary projects through the actual recipes, checks new
 and transitive C headers, and replaces a runtime archive in a private SDK copy.
 It also verifies that a no-op full build preserves all project artifacts. CI runs these
-checks before all eight ROM variants; it still rejects global-pointer use and
+checks before all seventeen ROM variants; it still rejects global-pointer use and
 unresolved Zig calls on every verified object.

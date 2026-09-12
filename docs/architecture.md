@@ -121,7 +121,7 @@ pack. Keep scenery groups small enough for useful frustum culling.
 The mesh builder reports capacity exhaustion before writing outside its arrays.
 Actor bounds derive from mesh coordinates and motion amplitudes; the host test
 verifies every packed body/shadow vertex throughout the benchmark for both
-packs. Optional `TEXTURED=1` marks the existing floor batches for a repeating
+packs. Optional `just build --textured 1` marks the existing floor batches for a repeating
 RGBA16 material; [texture documentation](../assets/textures/README.md) describes
 per-view texture residency, state restoration and resource costs.
 The exporter also predicts packing, and host tests compare its count

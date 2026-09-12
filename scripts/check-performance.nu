@@ -1,6 +1,7 @@
 #!/usr/bin/env nu
 # Validate sustained four-player benchmark samples, including audio service load.
 # This module also exports check-capture for content/material identity checks.
+use texture-workload.nu check-texture-workload
 const BASE_FIELDS = [views phase fps cpu_us submit_us triangles]
 const AUDIO_FIELDS = [audio audio_us audio_buffers audio_gap_us audio_budget_us audio_sfx audio_overlap workload]
 const AUDIO_WORK_FIELDS = [audio_us audio_buffers audio_gap_us audio_budget_us audio_sfx audio_overlap]
@@ -108,9 +109,14 @@ export def main [
     --minimum: int = 40
     --samples-per-phase: int = 15
     --audio: string = '' # on, off, legacy, or omitted to infer from the capture
+    --textured: string = 'off' # off, on, or legacy for historical untagged captures
+    --content: string = 'meadow' # meadow or robot-courtyard
 ] {
     try {
-        let report = (check-capture (open --raw $log) --minimum $minimum --samples-per-phase $samples_per_phase --audio $audio)
+        let text = open --raw $log
+        let identity = check-texture-workload $text $textured $content
+        let report = (check-capture $text --minimum $minimum --samples-per-phase $samples_per_phase --audio $audio)
+        print $identity
         for line in $report { print $line }
     } catch {|err| error make $'FAIL: ($err.msg)' }
 }

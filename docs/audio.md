@@ -109,12 +109,12 @@ assertions as well as numerical acceptance.
 1. Build `just build --benchmark 1 --audio 1`, run on the chosen emulator or hardware, and
    capture ISViewer/USB PERF output for at least a complete 60-second cycle;
    two cycles give additional samples away from startup/phase boundaries.
-2. Check `nu --no-config-file scripts/check-performance.nu audio-on.log --audio on`.
+2. Check `nu --no-config-file scripts/check-performance.nu audio-on.log --audio on --textured off`.
    The default requires at least 15 samples per phase at 40+ FPS, output
    buffers in every sample, service gaps within the guard, and evidence of
    four simultaneous effects in the close-quarters phase.
 3. Build `just build --benchmark 1 --audio 0` and repeat with the same platform/configuration.
-   Check `nu --no-config-file scripts/check-performance.nu audio-off.log --audio off`.
+   Check `nu --no-config-file scripts/check-performance.nu audio-off.log --audio off --textured off`.
    Compare FPS and CPU/mixer costs phase by phase; keep the two captures separate.
 4. Listen through the loop boundary and all three phases. In the ordinary ROM,
    test simultaneous player hops, pause/release/resume, reset while paused, and
@@ -124,13 +124,14 @@ assertions as well as numerical acceptance.
 Workload 2 makes close-quarters hops simultaneous. Both audio modes execute that
 identical workload; historical pre-audio captures used workload 1. The checker
 labels untagged logs as historical and rejects mixed audio modes/workloads in
-one capture. `--audio legacy` explicitly selects old captures. Never report the
+one capture. `--audio legacy --textured legacy` explicitly selects old captures. Never report the
 old graphics-only FPS range as a measured audio-enabled result.
 
-Automated coverage includes 25 Zig tests per content pack in Debug/ReleaseSmall,
-native mesh-validation tests, original WAV verification, eight native audio and
-benchmark test groups, and nine ROM/ABI variants (four layouts, validation, both benchmark audio
-modes, and two alternate-content builds). Listening, actual buffer
+Automated coverage includes 26 Zig tests per content pack in Debug/ReleaseSmall,
+native asset/workload tests, C material-state tests, original WAV verification,
+eight native audio and benchmark test groups, and seventeen ROM/ABI variants
+covering layouts, validation, both benchmark audio modes, content packs and
+textured builds. Listening, actual buffer
 starvation and combined performance observations remain pending.
 
 Run `nu --no-config-file scripts/test-performance.nu` for capture failure cases, strict integer

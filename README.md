@@ -77,6 +77,7 @@ just build --validate 1          # libdragon RDP command validation (slow)
 just build --benchmark 1         # graphics + audio, including four overlapping hops
 just build --benchmark 1 --audio 0 # identical workload with audio disabled
 just build --content robot-courtyard # alternate character, palette, motion and scenery
+just build --textured 1          # optional repeating 16x16 ground texture
 just build                       # restores the normal four-player configuration
 ```
 
@@ -121,13 +122,16 @@ mesh after validation. Nu owns recipes, validation and serialization; the only
 Python file translates Blender's `bpy` data through a JSON adapter. The alternate
 robot courtyard demonstrates replacing content without changing the C adapter.
 See the [asset workflow](assets/README.md) for collection/material metadata,
-coordinates, capacity checks and explicit source generation commands.
+coordinates, capacity checks and explicit source generation commands. The
+[optional texture example](assets/textures/README.md) documents UVs, TMEM costs
+and material state across split views.
 
 ![Rabbit model](assets/rabbit-preview.png)
 
 ## Verification and limits
 
-`just test` runs native Nu mesh-validation checks and 25 Zig tests for each
+`just test` runs native Nu asset/workload checks, C material-state tests and
+26 Zig tests for each
 content pack, covering controller isolation, lifecycle transitions, audio events,
 button edges, world bounds, view layouts, RSP packing/budgets, frame-slot isolation and
 animation bounds throughout all three benchmark phases. `just verify` checks the ROM
@@ -135,10 +139,10 @@ header, O64 ELF, implicit runtime calls, and the reserved global pointer.
 
 GitHub Actions runs separate **Check** and **Test** workflows on main pushes and
 pull requests. Check runs Zig formatting, native Nu parsing, SDK fixtures,
-original WAV verification, audio/benchmark tests, and actionlint. Test runs the
+original WAV/texture verification, audio/benchmark tests, and actionlint. Test runs the
 host suite in Debug and ReleaseSmall, then builds and verifies all four default
 layouts, validation and audio-on/off benchmark ROMs, and two
-alternate-content ROMs. Download those
+alternate-content ROMs, plus textured layouts and both packs' validation/benchmark ROMs. Download those
 ROMs from the Test run's artifacts. Run the same commands locally:
 
 ```sh
@@ -169,7 +173,8 @@ keep the new simultaneous-hop workload separate from those historical captures.
 To check a captured benchmark log:
 
 ```sh
-nu --no-config-file scripts/check-performance.nu path/to/ares-isviewer.log
+nu --no-config-file scripts/check-performance.nu path/to/ares-isviewer.log --textured off
+# Use --textured on for the texture demo; --textured legacy for historical logs.
 ```
 
 The framebuffer is 320×240 at 16 bpp, triple buffered, with one shared 16-bit
