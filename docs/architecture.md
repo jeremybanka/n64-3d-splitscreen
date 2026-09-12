@@ -84,7 +84,8 @@ Data is shared separately through exported global symbols, never an
 ABI-dependent aggregate call. `bridge.h` and Zig tests verify the layouts:
 two interleaved vertices occupy 32 bytes, a batch descriptor and viewport each
 occupy 16 bytes, and a camera occupies 24 bytes. Packed positions are signed
-16-bit Q8; the RSP vertex colors and unused normal/UV fields match Tiny3D.
+16-bit Q8; RSP vertex colors and normal/UV fields match Tiny3D. The optional
+ground material uses signed 10.5 texel UVs, while actor UVs and normals stay zero.
 
 `patch_mips_abi.zig` relabels the object's metadata for the GNU O64 linker.
 This is valid only together with this deliberately restricted interface.
@@ -120,7 +121,10 @@ pack. Keep scenery groups small enough for useful frustum culling.
 The mesh builder reports capacity exhaustion before writing outside its arrays.
 Actor bounds derive from mesh coordinates and motion amplitudes; the host test
 verifies every packed body/shadow vertex throughout the benchmark for both
-packs. The exporter also predicts packing, and host tests compare its count
+packs. Optional `just build --textured 1` marks the existing floor batches for a repeating
+RGBA16 material; [texture documentation](../assets/textures/README.md) describes
+per-view texture residency, state restoration and resource costs.
+The exporter also predicts packing, and host tests compare its count
 with the actual renderer. C ABI names and hardware adapter code are shared.
 
 The normal build uses the checked-in exported rabbit mesh. Tiny3D is pinned

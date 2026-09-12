@@ -43,6 +43,8 @@ pub const Mesh = extern struct {
 };
 pub const frame_pairs = 384;
 export var scene_environment: Mesh align(16) = undefined;
+// One material per spatial batch; the C adapter binds it after culling.
+export var scene_environment_materials: [64]u32 = undefined;
 export var scene_rabbit: Mesh align(16) = undefined;
 export var scene_frames: [3][4][frame_pairs]Packed align(16) = undefined;
 export var scene_views: [4]Viewport = undefined;
@@ -58,6 +60,8 @@ var mesh: *Mesh = undefined;
 var source_id: u16 = 0xffff;
 var material_id: u8 = 0;
 var shade_id: u8 = 255;
+var textured_ground = false;
+var world_material: u32 = 0;
 
 pub fn viewport(n: u32, i: u32) Viewport {
     if (n == 1) return .{ .x = 0, .y = 16, .w = 320, .h = 208 };
@@ -78,7 +82,7 @@ fn padMesh() void {
         prev.pos_b = prev.pos_a;
         prev.norm_b = 0;
         prev.color_b = prev.color_a;
-        prev.uv_b = .{ 0, 0 };
+        prev.uv_b = prev.uv_a;
         vertex_sources[i] = vertex_sources[i - 1];
         vertex_materials[i] = vertex_materials[i - 1];
         vertex_shades[i] = vertex_shades[i - 1];
@@ -92,6 +96,7 @@ fn newBatch() void {
     }
     padMesh();
     mesh.batches[mesh.batch_count] = .{ .vertex_offset = mesh.vertex_count, .vertex_count = 0, .index_offset = mesh.index_count, .index_count = 0 };
+    if (mesh == &scene_environment) scene_environment_materials[mesh.batch_count] = world_material;
     mesh.batch_count += 1;
 }
 fn position(p: Vec3) [3]i16 {
@@ -117,6 +122,12 @@ fn emitVertex(p: Vec3, color: u32) u8 {
     }
     const index = mesh.vertex_count;
     setVertex(&mesh.vertices[index / 2], index, p, color);
+    if (mesh == &scene_environment and world_material == 1) {
+        // Tiny3D UVs are signed 10.5 texel coordinates. With a 16x16 tile,
+        // Q8 world X/Z maps to one repetition every two world metres.
+        const uv: [2]i16 = .{ @intCast(p.x), @intCast(p.z) };
+        if (index % 2 == 0) mesh.vertices[index / 2].uv_a = uv else mesh.vertices[index / 2].uv_b = uv;
+    }
     keys[b.vertex_count] = .{ .p = p, .color = color, .source = source_id, .material = material_id, .shade = shade_id };
     vertex_sources[index] = source_id;
     vertex_materials[index] = material_id;
@@ -134,13 +145,25 @@ fn reserveTriangle() bool {
     if (mesh.batch_count == 0 or mesh.batches[mesh.batch_count - 1].vertex_count > 61) newBatch();
     return scene_overflow == 0;
 }
-pub fn worldTri(a: Vec3, b: Vec3, c: Vec3, color: u32) void {
+fn worldMaterialTri(a: Vec3, b: Vec3, c: Vec3, color: u32, material: u32) void {
+    world_material = material;
+    if (mesh.batch_count != 0 and scene_environment_materials[mesh.batch_count - 1] != material) {
+        if (mesh.batches[mesh.batch_count - 1].vertex_count == 0) {
+            scene_environment_materials[mesh.batch_count - 1] = material;
+        } else group();
+    }
     if (!reserveTriangle()) return;
     for ([_]Vec3{ a, b, c }) |p| {
         mesh.indices[mesh.index_count] = emitVertex(p, color);
         mesh.index_count += 1;
     }
     mesh.batches[mesh.batch_count - 1].index_count += 3;
+}
+pub fn worldTri(a: Vec3, b: Vec3, c: Vec3, color: u32) void {
+    worldMaterialTri(a, b, c, color, 0);
+}
+pub fn groundTri(a: Vec3, b: Vec3, c: Vec3, color: u32) void {
+    worldMaterialTri(a, b, c, color, @intFromBool(textured_ground));
 }
 fn worldCulled(a: Vec3, b: Vec3, c: Vec3, color: u32) void {
     worldTri(a, b, c, color);
@@ -186,14 +209,17 @@ fn localVertex(id: usize) Vec3 {
     const angle = @as(i32, @intCast(id - character.vertices.len - 1)) * 16;
     return .{ .x = mul(sin(angle), 115), .z = mul(cos(angle), 115) };
 }
-export fn scene_init(_: u32) u32 {
+export fn scene_init(options: u32) u32 {
     scene_overflow = 0;
+    textured_ground = options & 1 != 0;
+    world_material = 0;
     source_id = 0xffff;
     begin(&scene_environment);
     content.environment(@This());
     padMesh();
     if (scene_overflow != 0) return 1;
     // Character batches are indexed by original Blender vertex + face shade.
+    world_material = 0;
     begin(&scene_rabbit);
     for (character.faces) |f| {
         if (!reserveTriangle()) return 1;
@@ -393,4 +419,34 @@ test "pausing preserves the walking pose throughout paused simulation ticks" {
     _ = game.game_pause(0);
     game.step();
     try std.testing.expect(!game.players[0].moving);
+}
+
+test "optional ground material has bounded planar UVs and never reaches actors" {
+    for ([_]u32{ 0, 1 }) |enabled| {
+        try std.testing.expectEqual(@as(u32, 0), scene_init(enabled));
+        var textured_triangles: u32 = 0;
+        for (scene_environment.batches[0..scene_environment.batch_count], 0..) |batch, b| {
+            const material = scene_environment_materials[b];
+            try std.testing.expect(material <= 1);
+            for (batch.vertex_offset..batch.vertex_offset + batch.vertex_count) |i| {
+                const pair = scene_environment.vertices[i / 2];
+                const uv = if (i % 2 == 0) pair.uv_a else pair.uv_b;
+                const p = if (i % 2 == 0) pair.pos_a else pair.pos_b;
+                if (material == 1) {
+                    try std.testing.expectEqual(enabled, 1);
+                    try std.testing.expectEqual(@as(i16, 0), p[1]);
+                    try std.testing.expectEqualDeep([2]i16{ p[0], p[2] }, uv);
+                    try std.testing.expect(@abs(@as(i32, uv[0])) <= 4096 and @abs(@as(i32, uv[1])) <= 4096);
+                } else try std.testing.expectEqualDeep([2]i16{ 0, 0 }, uv);
+            }
+            if (material == 1) textured_triangles += batch.index_count / 3;
+        }
+        try std.testing.expectEqual(enabled * 32, textured_triangles);
+        for (scene_frames) |frame| for (frame) |actor| {
+            for (actor[0 .. scene_rabbit.vertex_count / 2]) |pair| {
+                try std.testing.expectEqualDeep([2]i16{ 0, 0 }, pair.uv_a);
+                try std.testing.expectEqualDeep([2]i16{ 0, 0 }, pair.uv_b);
+            }
+        };
+    }
 }

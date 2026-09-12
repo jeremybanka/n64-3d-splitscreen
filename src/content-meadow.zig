@@ -20,8 +20,8 @@ pub fn environment(comptime draw: type) void {
         const x = (@as(i32, @intCast(ix)) * 8 - 16) * Q;
         const z = (@as(i32, @intCast(iz)) * 8 - 16) * Q;
         const col: u32 = if ((ix + iz) % 2 == 0) 0x80ac79ff else 0x86b17dff;
-        draw.worldTri(.{ .x = x, .z = z }, .{ .x = x + 8 * Q, .z = z + 8 * Q }, .{ .x = x + 8 * Q, .z = z }, col);
-        draw.worldTri(.{ .x = x, .z = z }, .{ .x = x, .z = z + 8 * Q }, .{ .x = x + 8 * Q, .z = z + 8 * Q }, col);
+        draw.groundTri(.{ .x = x, .z = z }, .{ .x = x + 8 * Q, .z = z + 8 * Q }, .{ .x = x + 8 * Q, .z = z }, col);
+        draw.groundTri(.{ .x = x, .z = z }, .{ .x = x, .z = z + 8 * Q }, .{ .x = x + 8 * Q, .z = z + 8 * Q }, col);
     };
     draw.group();
     // A true annulus avoids overlapping coplanar grass/path discs. Its

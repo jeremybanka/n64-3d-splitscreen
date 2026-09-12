@@ -28,7 +28,7 @@ SummerCart64 task, so normal development and CI do not install it.
 ## Test
 
 The two **Zig (Debug)** and **Zig (ReleaseSmall)** jobs each run the full host
-suite for both content packs, plus native Nu mesh-validation checks,
+suite for both content packs, plus native Nu asset/workload checks and C material-state tests,
 with a five-minute timeout. Debug preserves runtime safety checks;
 ReleaseSmall exercises the optimization mode used for the N64 object. A matrix
 failure does not cancel the other configuration.
@@ -76,12 +76,14 @@ unchanged output bytes/timestamps. They use private project storage.
 - Four-player validation/profiling with the automatic tour.
 - The four-player benchmark with audio enabled and disabled (identical workload 2).
 - Robot courtyard in four-player and validation/tour configurations.
+- Textured meadow in all four layouts, plus validation/tour and benchmark.
+- Textured robot courtyard in validation/tour and benchmark configurations.
 
 Every variant passes `scripts/verify-rom.nu`: big-endian ROM magic, O64 linked
 ELF, no implicit external calls from Zig, and no use of the reserved MIPS global
 pointer. The task leaves the normal four-player ROM as the default output.
 
-The `n64-roms-<commit>` artifact contains all nine `.z64` variants and
+The `n64-roms-<commit>` artifact contains all seventeen `.z64` variants and
 `SHA256SUMS`, retained for 14 days. These checks establish that the game builds
 and meets the static ABI contract. They do not boot the ROM, listen to audio, or measure FPS.
 Blender-specific integration tests are optional locally (`just test-models`);

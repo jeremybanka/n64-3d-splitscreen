@@ -9,7 +9,7 @@ export ZIG_GLOBAL_CACHE_DIR := env('ZIG_GLOBAL_CACHE_DIR', justfile_directory() 
 default:
     ^just --list
 
-# Build the ROM; --content meadow|robot-courtyard, --views 1..4, --audio and diagnostic switches 0|1.
+# Build the ROM; --content meadow|robot-courtyard, --views 1..4, --audio/--textured and diagnostic switches 0|1.
 build *args:
     def --wrapped main [...args: string] { ^nu --no-config-file scripts/build.nu ...$args }
 
@@ -71,6 +71,10 @@ models:
 # Optional Blender integration: exports, source hashes, recipes and invalid metadata.
 test-models:
     ^nu --no-config-file scripts/test-blender-export.nu
+
+# Convert the original editable tile to the checked-in RGBA16 header.
+texture-assets:
+    ^nu --no-config-file scripts/make-texture.nu
 
 # Explicitly regenerate the original source WAVs; normal builds use ready assets.
 audio-assets:

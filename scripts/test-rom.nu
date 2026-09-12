@@ -6,13 +6,18 @@ def main [] {
     cd $ROOT
     rm --recursive --force build $'($ROM).z64'
     mkdir build/roms
-    let normal = {views: 4, autotour: 0, profile: 0, validate: 0, benchmark: 0, content: meadow, audio: 1}
+    let normal = {views: 4, autotour: 0, profile: 0, validate: 0, benchmark: 0, content: meadow, audio: 1, textured: 0}
     let variants = (1..4 | each {|views| {name: $'bunny-meadow-($views)-players', config: ($normal | update views $views)} }) | append [
         {name: bunny-meadow-validation, config: ($normal | merge {validate: 1, profile: 1, autotour: 1})}
         {name: bunny-meadow-benchmark, config: ($normal | update benchmark 1)}
         {name: bunny-meadow-benchmark-no-audio, config: ($normal | merge {benchmark: 1, audio: 0})}
         {name: robot-courtyard-4-players, config: ($normal | update content robot-courtyard)}
         {name: robot-courtyard-validation, config: ($normal | merge {content: robot-courtyard, validate: 1, profile: 1, autotour: 1})}
+    ] | append (1..4 | each {|views| {name: $'bunny-meadow-textured-($views)-players', config: ($normal | merge {views: $views, textured: 1})} }) | append [
+        {name: bunny-meadow-textured-validation, config: ($normal | merge {textured: 1, validate: 1, profile: 1, autotour: 1})}
+        {name: bunny-meadow-textured-benchmark, config: ($normal | merge {textured: 1, benchmark: 1})}
+        {name: robot-courtyard-textured-validation, config: ($normal | merge {content: robot-courtyard, textured: 1, validate: 1, profile: 1, autotour: 1})}
+        {name: robot-courtyard-textured-benchmark, config: ($normal | merge {content: robot-courtyard, textured: 1, benchmark: 1})}
     ]
     for variant in $variants {
         print $'Building ($variant.name)'

@@ -10,5 +10,6 @@ def main [] {
     command $nu.current-exe [--no-config-file scripts/test-mesh-format.nu]
     command $nu.current-exe [--no-config-file scripts/make-audio.nu --check]
     command $nu.current-exe [--no-config-file scripts/test-performance.nu]
-    print 'PASS: native Nu scripts parse; SDK, mesh and audio fixtures pass'
+    command $nu.current-exe [--no-config-file scripts/make-texture.nu --check]
+    print 'PASS: native Nu scripts parse; SDK, mesh, audio and texture checks pass'
 }
