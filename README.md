@@ -169,7 +169,7 @@ keep the new simultaneous-hop workload separate from those historical captures.
 To check a captured benchmark log:
 
 ```sh
-nu scripts/check-performance.nu path/to/ares-isviewer.log
+nu --no-config-file scripts/check-performance.nu path/to/ares-isviewer.log
 ```
 
 The framebuffer is 320×240 at 16 bpp, triple buffered, with one shared 16-bit

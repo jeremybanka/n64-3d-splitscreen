@@ -131,6 +131,6 @@ and builds only the library. See the [upstream project](https://github.com/HailT
 and its [MIT license](licenses/Tiny3D.txt).
 
 Run `just build --benchmark 1` after a renderer change, record ISViewer diagnostics,
-and use `scripts/check-performance.nu` to check all three 20-second workloads.
-`PROFILE=1` adds CPU/submission timings; `VALIDATE=1` enables RDPQ validation
+and use `nu --no-config-file scripts/check-performance.nu` to check all three 20-second workloads.
+`--profile 1` adds CPU/submission timings; `--validate 1` enables RDPQ validation
 and is deliberately excluded from performance acceptance.

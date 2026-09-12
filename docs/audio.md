@@ -1,18 +1,23 @@
 # Audio integration
 
 The sample plays an original eight-second music loop and a short rising chirp
-when a player actually starts a hop. Source WAVs and their stdlib Python
-generator live in `assets/audio/` and `scripts/make-audio.py`; their musical
+when a player actually starts a hop. Source WAVs and their native Nushell
+generator live in `assets/audio/` and `scripts/make-audio.nu`; their musical
 content is original and dedicated under CC0. Normal builds need only the ready
 WAVs and the pinned libdragon `audioconv64` already included in the SDK.
 
 ## Assets and channels
 
-`make` defaults to `AUDIO=1`. It converts the mono 22,050 Hz WAVs to VADPCM WAV64,
-packages them into DragonFS, and streams their samples from ROM. `make AUDIO=0`
+`just build` defaults to `--audio 1`. It converts the mono 22,050 Hz WAVs to VADPCM WAV64,
+packages them into DragonFS, and streams their samples from ROM. `just build --audio 0`
 omits the filesystem and all mixer/AI initialization while keeping the same
-simulation and render workload. `make audio-assets` explicitly regenerates the
+simulation and render workload. `just audio-assets` explicitly regenerates the
 source WAVs; it is not part of a normal build.
+
+The generator uses the pinned Nushell 0.115.1 math and binary commands, with
+ties-to-even PCM rounding and explicit little-endian RIFF fields. The two
+checked-in WAVs remain byte-identical to the earlier generator's output.
+`nu --no-config-file scripts/make-audio.nu --check` verifies them without writing files.
 
 `src/sound.c` owns five channels. Channel 0 loops `meadow.wav64`; channels 1–4
 belong permanently to physical players P1–P4 and play `hop.wav64`. Four players
@@ -23,7 +28,7 @@ attenuation leave headroom for simultaneous effects, but listening validation
 is still required before treating the sample mix as final.
 
 To replace content, put new mono PCM WAVs at the same source paths and build.
-To add a sound, add its conversion prerequisite in the Makefile, open its WAV64
+To add a sound, add its conversion input in the native build script, open its WAV64
 in `sound_init`, and choose its event bit and channel policy explicitly.
 The current music and effect share a 22,050 Hz source/output target; keeping
 replacement files at that rate avoids increasing per-channel resampling and
@@ -95,15 +100,15 @@ assertions as well as numerical acceptance.
 
 ## Benchmark comparison
 
-1. Build `make BENCHMARK=1 AUDIO=1`, run on the chosen emulator or hardware, and
+1. Build `just build --benchmark 1 --audio 1`, run on the chosen emulator or hardware, and
    capture ISViewer/USB PERF output for at least a complete 60-second cycle;
    two cycles give additional samples away from startup/phase boundaries.
-2. Check `python3 scripts/check-performance.py audio-on.log --audio on`.
+2. Check `nu --no-config-file scripts/check-performance.nu audio-on.log --audio on`.
    The default requires at least 15 samples per phase at 40+ FPS, output
    buffers in every sample, service gaps within the guard, and evidence of
    four simultaneous effects in the close-quarters phase.
-3. Build `make BENCHMARK=1 AUDIO=0` and repeat with the same platform/configuration.
-   Check `python3 scripts/check-performance.py audio-off.log --audio off`.
+3. Build `just build --benchmark 1 --audio 0` and repeat with the same platform/configuration.
+   Check `nu --no-config-file scripts/check-performance.nu audio-off.log --audio off`.
    Compare FPS and CPU/mixer costs phase by phase; keep the two captures separate.
 4. Listen through the loop boundary and all three phases. In the ordinary ROM,
    test simultaneous player hops, pause/release/resume, reset while paused, and
@@ -117,7 +122,14 @@ one capture. `--audio legacy` explicitly selects old captures. Never report the
 old graphics-only FPS range as a measured audio-enabled result.
 
 Automated coverage includes 25 Zig tests per content pack in Debug/ReleaseSmall,
-eight mesh-validation tests, original WAV verification, five benchmark-parser
-tests, and nine ROM/ABI variants (four layouts, validation, both benchmark audio
+eight mesh-validation tests, original WAV verification, eight native audio and
+benchmark test groups, and nine ROM/ABI variants (four layouts, validation, both benchmark audio
 modes, and two alternate-content builds). Listening, actual buffer
 starvation and combined performance observations remain pending.
+
+Run `nu --no-config-file scripts/test-performance.nu` for capture failure cases, strict integer
+fields, PCM rounding/RIFF layout, and native CLI exit-status checks. Other Nu
+modules can `use check-performance.nu check-capture` and call
+`check-capture $text --minimum 40 --samples-per-phase 15 --audio on`; the helper
+returns report lines or raises a native error. Extra material/content fields
+are ignored here so their separate identity validator can compose with it.
