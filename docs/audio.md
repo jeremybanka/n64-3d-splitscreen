@@ -14,6 +14,12 @@ omits the filesystem and all mixer/AI initialization while keeping the same
 simulation and render workload. `just audio-assets` explicitly regenerates the
 source WAVs; it is not part of a normal build.
 
+`scripts/build-audio.nu` tracks each source WAV, converter binary and conversion
+options before writing `build/audio/*.wav64`. DragonFS is built from exactly
+those selected files in fresh temporary staging, so leftover files cannot enter
+the ROM. The ROM packaging identity includes the DFS hash, or no filesystem for
+`--audio 0`. Unchanged WAV64, DFS and ROM outputs retain their bytes and timestamps.
+
 The generator uses the pinned Nushell 0.115.1 math and binary commands, with
 ties-to-even PCM rounding and explicit little-endian RIFF fields. The two
 checked-in WAVs remain byte-identical to the earlier generator's output.
@@ -28,7 +34,7 @@ attenuation leave headroom for simultaneous effects, but listening validation
 is still required before treating the sample mix as final.
 
 To replace content, put new mono PCM WAVs at the same source paths and build.
-To add a sound, add its conversion input in the native build script, open its WAV64
+To add a sound, add its conversion input in `scripts/build-audio.nu`, open its WAV64
 in `sound_init`, and choose its event bit and channel policy explicitly.
 The current music and effect share a 22,050 Hz source/output target; keeping
 replacement files at that rate avoids increasing per-channel resampling and
@@ -122,7 +128,7 @@ one capture. `--audio legacy` explicitly selects old captures. Never report the
 old graphics-only FPS range as a measured audio-enabled result.
 
 Automated coverage includes 25 Zig tests per content pack in Debug/ReleaseSmall,
-eight mesh-validation tests, original WAV verification, eight native audio and
+native mesh-validation tests, original WAV verification, eight native audio and
 benchmark test groups, and nine ROM/ABI variants (four layouts, validation, both benchmark audio
 modes, and two alternate-content builds). Listening, actual buffer
 starvation and combined performance observations remain pending.
@@ -133,3 +139,7 @@ modules can `use check-performance.nu check-capture` and call
 `check-capture $text --minimum 40 --samples-per-phase 15 --audio on`; the helper
 returns report lines or raises a native error. Extra material/content fields
 are ignored here so their separate identity validator can compose with it.
+
+`just test-build` also exercises WAV-only rebuilds, deleted converted outputs,
+stale-file exclusion, audio-off builds without source WAVs, restoring audio,
+and no-op output bytes/timestamps in a private project fixture.

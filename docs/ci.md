@@ -66,6 +66,10 @@ build preserves the C/Zig objects, ELF and ROM bytes and modification times.
 New/transitive C headers and runtime archive replacement are also checked in
 private copies. This step uses the installed SDK but never writes to it.
 
+Audio dependency fixtures additionally cover changed/missing converted sources,
+stale-file exclusion, audio-off builds without WAV inputs, restoring audio, and
+unchanged output bytes/timestamps. They use private project storage.
+
 `just test-rom` starts with `just clean`, then builds:
 
 - One-, two-, three-, and four-player layouts.
