@@ -78,6 +78,7 @@ just build --benchmark 1         # graphics + audio, including four overlapping 
 just build --benchmark 1 --audio 0 # identical workload with audio disabled
 just build --content robot-courtyard # alternate character, palette, motion and scenery
 just build --textured 1          # optional repeating 16x16 ground texture
+just build --collision 1         # solid boxes, wall sliding and camera clearance
 just build                       # restores the normal four-player configuration
 ```
 
@@ -102,6 +103,8 @@ rendering, with bounded catch-up after a pause.
 - `scripts/model-recipes.nu`: native Nu scene recipes for the sample model.
 - `scripts/export-mesh.nu`: mesh conversion, validation and Zig export.
 - `scripts/blender-adapter.py`: the minimal Blender `bpy` API adapter.
+- `src/collision.zig`: bounded Q8 box/segment queries and swept arena movement.
+- `src/arena.zig`: optional solid-box layout and camera-clearance example.
 - `assets/rabbit.blend`: editable character and studio scene.
 - `src/generated/rabbit.zig`: ROM-ready indexed mesh (130 vertices / 188 triangles).
 
@@ -111,6 +114,8 @@ Trees, rocks, mushrooms, and the carrot monument are decorative; the sample
 physics implements ground, world bounds, and player separation, not general
 mesh collision. An original music loop and overlapping per-player hop sounds
 exercise libdragon's RSP mixer. No save system or networking is included.
+Enable `COLLISION_DEMO=1` for three explicit solid boxes, swept wall sliding, and
+camera shortening. See [arena queries and supported limits](docs/collision.md).
 
 ```sh
 just models  # export saved .blend files; set BLENDER for another executable location
@@ -131,9 +136,9 @@ and material state across split views.
 ## Verification and limits
 
 `just test` runs native Nu asset/workload checks, C material-state tests and
-26 Zig tests for each
+37 Zig tests for each
 content pack, covering controller isolation, lifecycle transitions, audio events,
-button edges, world bounds, view layouts, RSP packing/budgets, frame-slot isolation and
+button edges, swept obstacle movement, world bounds, view layouts, RSP packing/budgets, frame-slot isolation and
 animation bounds throughout all three benchmark phases. `just verify` checks the ROM
 header, O64 ELF, implicit runtime calls, and the reserved global pointer.
 
@@ -142,7 +147,8 @@ pull requests. Check runs Zig formatting, native Nu parsing, SDK fixtures,
 original WAV/texture verification, audio/benchmark tests, and actionlint. Test runs the
 host suite in Debug and ReleaseSmall, then builds and verifies all four default
 layouts, validation and audio-on/off benchmark ROMs, and two
-alternate-content ROMs, plus textured layouts and both packs' validation/benchmark ROMs. Download those
+alternate-content ROMs, plus textured layouts and both packs' validation/benchmark ROMs.
+Collision and combined texture/collision validation and benchmark variants are also included. Download those
 ROMs from the Test run's artifacts. Run the same commands locally:
 
 ```sh
@@ -174,7 +180,7 @@ To check a captured benchmark log:
 
 ```sh
 nu --no-config-file scripts/check-performance.nu path/to/ares-isviewer.log --textured off
-# Use --textured on for the texture demo; --textured legacy for historical logs.
+# Use --textured on for the texture demo; --audio legacy --textured legacy --collision legacy for historical logs.
 ```
 
 The framebuffer is 320×240 at 16 bpp, triple buffered, with one shared 16-bit

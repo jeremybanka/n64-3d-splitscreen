@@ -89,7 +89,7 @@ Every new PERF sample identifies both `textured=0|1` and the content pack. Use:
 nu --no-config-file scripts/check-performance.nu capture.log --audio on --textured on --content meadow
 nu --no-config-file scripts/check-performance.nu courtyard.log --audio on --textured on --content robot-courtyard
 nu --no-config-file scripts/check-performance.nu flat.log --audio on --textured off --content meadow
-nu --no-config-file scripts/check-performance.nu docs/performance.txt --audio legacy --textured legacy
+nu --no-config-file scripts/check-performance.nu docs/performance.txt --audio legacy --textured legacy --collision legacy
 ```
 
 The checker rejects mixed or missing identities. Historical untagged logs require
@@ -100,8 +100,9 @@ Host tests check packed UV ranges, exactly 32 textured floor triangles,
 untextured actor/frame data, source-to-header reproducibility and workload
 identity. Adapter tests use test doubles to exercise flat/textured bindings,
 depth flags and HUD-to-viewport reloads through all four layout counts. They do
-not execute the RSP or RDP. The ROM suite builds seventeen variants, including
-textured layouts 1–4 and validation/benchmark configurations for both packs.
+not execute the RSP or RDP. The ROM suite builds twenty-two variants, including
+textured layouts 1–4, validation/benchmark configurations for both packs,
+and combined texture/collision validation and benchmark builds.
 
 Runtime RDPQ validation, visual inspection and FPS measurements for the textured
 workload remain pending. Before accepting hardware performance, run a longer

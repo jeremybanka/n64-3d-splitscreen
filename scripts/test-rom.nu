@@ -6,7 +6,7 @@ def main [] {
     cd $ROOT
     rm --recursive --force build $'($ROM).z64'
     mkdir build/roms
-    let normal = {views: 4, autotour: 0, profile: 0, validate: 0, benchmark: 0, content: meadow, audio: 1, textured: 0}
+    let normal = {views: 4, autotour: 0, profile: 0, validate: 0, benchmark: 0, content: meadow, audio: 1, textured: 0, collision: 0}
     let variants = (1..4 | each {|views| {name: $'bunny-meadow-($views)-players', config: ($normal | update views $views)} }) | append [
         {name: bunny-meadow-validation, config: ($normal | merge {validate: 1, profile: 1, autotour: 1})}
         {name: bunny-meadow-benchmark, config: ($normal | update benchmark 1)}
@@ -18,6 +18,11 @@ def main [] {
         {name: bunny-meadow-textured-benchmark, config: ($normal | merge {textured: 1, benchmark: 1})}
         {name: robot-courtyard-textured-validation, config: ($normal | merge {content: robot-courtyard, textured: 1, validate: 1, profile: 1, autotour: 1})}
         {name: robot-courtyard-textured-benchmark, config: ($normal | merge {content: robot-courtyard, textured: 1, benchmark: 1})}
+        {name: bunny-meadow-collision, config: ($normal | merge {collision: 1})}
+        {name: bunny-meadow-collision-validation, config: ($normal | merge {collision: 1, validate: 1, profile: 1, autotour: 1})}
+        {name: bunny-meadow-collision-benchmark, config: ($normal | merge {collision: 1, benchmark: 1})}
+        {name: bunny-meadow-collision-textured-validation, config: ($normal | merge {collision: 1, textured: 1, validate: 1, profile: 1, autotour: 1})}
+        {name: bunny-meadow-collision-textured-benchmark, config: ($normal | merge {collision: 1, textured: 1, benchmark: 1})}
     ]
     for variant in $variants {
         print $'Building ($variant.name)'

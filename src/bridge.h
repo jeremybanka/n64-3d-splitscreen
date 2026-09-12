@@ -3,6 +3,8 @@
 #include <stdint.h>
 /* Callable seam: at most one uint32_t argument and one uint32_t result. */
 uint32_t game_reset(uint32_t unused);
+/* Optional obstacle demo; configure before scene_init. Resets world positions. */
+uint32_t game_collision_demo(uint32_t enabled);
 /* Mask bit N always refers to controller/player port N; upper bits ignored. */
 uint32_t game_connections(uint32_t mask);
 uint32_t game_participants(uint32_t mask);

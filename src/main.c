@@ -9,6 +9,7 @@
 #include <t3d/t3d.h>
 _Static_assert(sizeof(T3DVertPacked) == sizeof(packed_vertex_t), "RSP vertex layout");
 _Static_assert(INITIAL_VIEWS >= 1 && INITIAL_VIEWS <= 4, "INITIAL_VIEWS must be 1..4");
+_Static_assert(COLLISION_DEMO == 0 || COLLISION_DEMO == 1, "COLLISION_DEMO must be 0 or 1");
 
 static const color_t player_colors[4] = {
     {239,137,101,255}, {122,184,232,255}, {234,199,98,255}, {178,154,223,255}
@@ -172,6 +173,7 @@ int main(void) {
     rdpq_text_register_font(1, rdpq_font_load_builtin(FONT_BUILTIN_DEBUG_VAR));
     surface_t depth = surface_alloc(FMT_RGBA16, 320, 240);
     game_reset(0);
+    game_collision_demo(COLLISION_DEMO);
     init_scene();
     for (unsigned i = 0; i < INITIAL_VIEWS % 4; i++) game_command(GAME_CYCLE_VIEWS);
     if (AUTOTOUR) game_command(GAME_TOGGLE_TOUR);
@@ -244,9 +246,9 @@ int main(void) {
 #if PROFILE || BENCHMARK || defined(RDPQ_VALIDATE)
             debugf("PERF views=%u phase=%u fps=%u cpu_us=%u submit_us=%u triangles=%u "
                 "audio=%u audio_us=%u audio_buffers=%lu audio_gap_us=%lu audio_budget_us=%lu "
-                "audio_sfx=%lu audio_overlap=%lu workload=2 textured=%u content=%s\n",
+                "audio_sfx=%lu audio_overlap=%lu workload=2 textured=%u content=%s collision=%u\n",
                 views, benchmark_phase, fps, transform_us, submit_us, triangles,
-                AUDIO, audio_us, audio.buffers, audio.max_gap_us, audio.budget_us, audio.starts, audio.overlap, TEXTURED, CONTENT_NAME);
+                AUDIO, audio_us, audio.buffers, audio.max_gap_us, audio.budget_us, audio.starts, audio.overlap, TEXTURED, CONTENT_NAME, COLLISION_DEMO);
 #endif
         }
     }
