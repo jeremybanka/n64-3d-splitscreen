@@ -35,7 +35,7 @@ Benchmark ROM SHA-256:
 `5412acf84a18b6d2746f0bada1106a384c7ded379ff07fb9ffd180fe4a049817`.
 
 ```sh
-nu scripts/check-performance.nu docs/performance.txt
+nu --no-config-file scripts/check-performance.nu docs/performance.txt --audio legacy
 ```
 
 The checker requires four views throughout, at least 15 complete samples
@@ -124,3 +124,17 @@ The final ROM starts in four-player mode with benchmark, profiling, validation
 and automatic tour disabled. Player 1 Start cycles layouts; Z enables the tour.
 The editable Blender 5.2.1 source and its 130-vertex/188-triangle rabbit are
 unchanged by the renderer optimization.
+
+
+## Audio integration: validation still pending
+
+The original graphics-only captures above use benchmark workload 1. Audio
+integration changes the final phase to simultaneous four-player hops and labels
+its PERF records `workload=2 audio=0|1`. New `AUDIO=0` and `AUDIO=1` ROMs run the
+same workload for comparison. The old FPS range does not establish the new
+combined graphics/audio budget.
+
+Host event/parser tests and ROM/ABI builds validate the integration's code and
+packaging. Interactive listening, pause/reset latency, four-effect overlap and
+sustained workload-2 performance still need emulator or hardware observation;
+no such results are claimed here. Follow [the comparison procedure](audio.md#benchmark-comparison).

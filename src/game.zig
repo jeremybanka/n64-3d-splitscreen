@@ -37,6 +37,14 @@ pub var paused = false;
 const edge_mask: u32 = (1 << 16) | (1 << 19);
 const held_mask: u32 = (1 << 17) | (1 << 18) | (1 << 20) | (1 << 21) | (1 << 22);
 var input_ready = [_]bool{false} ** 4;
+// Audio events: hop bits 0..3, stop-player bits 4..7, music restart bit 8.
+// Sticky until drained, so catch-up steps cannot lose an event.
+var audio_events: u32 = 0;
+pub export fn game_audio_events() u32 {
+    const events = audio_events;
+    audio_events = 0;
+    return events;
+}
 
 pub fn isParticipant(port: usize) bool {
     return participant_mask & (@as(u32, 1) << @intCast(port)) != 0;
@@ -52,6 +60,7 @@ pub var ticks: u32 = 0;
 pub var tour = false;
 
 pub fn reset() void {
+    audio_events = 0x1f0; // Drop previous hops, stop all effects, restart music.
     ticks = 0;
     tour = false;
     for (&players, 0..) |*p, i| {
@@ -103,7 +112,10 @@ pub fn step() void {
             }
         }
         if (p.moving) p.walk = @mod(p.walk + 9, 256);
-        if ((p.input & (1 << 16) != 0 or (tour and ticks % 300 == i * 60)) and p.pos.y == 0) p.velocity_y = 57;
+        if ((p.input & (1 << 16) != 0 or (tour and ticks % 300 == i * 60)) and p.pos.y == 0) {
+            p.velocity_y = 57;
+            audio_events |= @as(u32, 1) << @intCast(i);
+        }
         // Jump is edge-triggered, even if a frame contains multiple simulation steps.
         p.input &= ~@as(u32, (1 << 16) | (1 << 19));
         p.pos.y += p.velocity_y;
@@ -162,6 +174,8 @@ pub export fn game_connections(mask: u32) u32 {
 pub export fn game_participants(mask: u32) u32 {
     const next = mask & 15;
     const changed = next ^ participant_mask;
+    const removed = participant_mask & ~next;
+    audio_events = (audio_events & ~removed) | (removed << 4);
     participant_mask = next;
     for (0..4) |port| {
         if (changed & (@as(u32, 1) << @intCast(port)) != 0) clearInput(port);
@@ -187,6 +201,7 @@ pub export fn game_pause(value: u32) u32 {
     const next = value != 0;
     if (next != paused) {
         paused = next;
+        if (paused) audio_events = (audio_events & ~@as(u32, 15)) | 0xf0;
         clearInputs();
     }
     return @intFromBool(paused);
@@ -327,7 +342,9 @@ pub export fn game_benchmark(count: u32) u32 {
             } else if (phase == 2) {
                 word |= 1 << 18;
             }
-            if (time % 120 == i * 20) word |= 1 << 16;
+            // Workload 2 adds simultaneous four-port hops in close quarters.
+            // AUDIO=0/1 execute this identical graphics/gameplay workload.
+            if (time % 120 == (if (phase == 2) 0 else i * 20)) word |= 1 << 16;
             players[i].input = word & 0xfffff;
         }
         step();
@@ -503,4 +520,71 @@ test "benchmark does not depend on connected controllers or session policy" {
     try std.testing.expectEqual(@as(u32, 15), participant_mask);
     try std.testing.expectEqual(@as(u32, 15), visible_mask);
     try std.testing.expect(!paused);
+}
+
+test "audio hop events preserve port identity and drain exactly once" {
+    resetConnectedTest();
+    _ = game_audio_events();
+    _ = game_input((2 << 30) | (1 << 16));
+    _ = game_tick(0);
+    try std.testing.expectEqual(@as(u32, 0), game_audio_events());
+    _ = game_tick(15);
+    try std.testing.expectEqual(@as(u32, 4), game_audio_events());
+    try std.testing.expectEqual(@as(u32, 0), game_audio_events());
+    // A second press while airborne is not another successful hop.
+    _ = game_input((2 << 30) | (1 << 16));
+    step();
+    try std.testing.expectEqual(@as(u32, 0), game_audio_events());
+}
+
+test "pause and restart discard pending sounds and request channel cleanup" {
+    resetConnectedTest();
+    _ = game_audio_events();
+    _ = game_input(1 << 16);
+    step();
+    _ = game_pause(1);
+    _ = game_tick(15);
+    try std.testing.expectEqual(@as(u32, 0xf0), game_audio_events());
+    _ = game_pause(0);
+    _ = game_command(3);
+    try std.testing.expectEqual(@as(u32, 0x1f0), game_audio_events());
+    try std.testing.expectEqual(@as(u32, 0), game_audio_events());
+    _ = game_input(0);
+    _ = game_input(1 << 16);
+    step();
+    _ = game_command(3);
+    _ = game_input(0);
+    _ = game_input((3 << 30) | 0);
+    _ = game_input((3 << 30) | (1 << 16));
+    step();
+    // A fresh post-restart hop coexists with the sticky restart command.
+    try std.testing.expectEqual(@as(u32, 0x1f8), game_audio_events());
+}
+
+test "participation removes only its own pending and playing audio" {
+    resetConnectedTest();
+    _ = game_audio_events();
+    _ = game_input((1 << 30) | (1 << 16));
+    _ = game_input((3 << 30) | (1 << 16));
+    step();
+    _ = game_participants(13); // Remove P2 while retaining P4's hop.
+    try std.testing.expectEqual(@as(u32, 0x28), game_audio_events());
+    _ = game_command(3);
+    _ = game_audio_events();
+    _ = game_input(1 << 30);
+    _ = game_input((1 << 30) | (1 << 16));
+    step();
+    try std.testing.expectEqual(@as(u32, 0), game_audio_events());
+}
+
+test "benchmark workload two exercises all four simultaneous sound events" {
+    _ = game_reset(0);
+    _ = game_audio_events();
+    var simultaneous = false;
+    for (0..180) |_| {
+        const phase = game_benchmark(15);
+        const events = game_audio_events();
+        if (phase == 2 and events & 15 == 15) simultaneous = true;
+    }
+    try std.testing.expect(simultaneous);
 }

@@ -6,10 +6,11 @@ def main [] {
     cd $ROOT
     rm --recursive --force build $'($ROM).z64'
     mkdir build/roms
-    let normal = {views: 4, autotour: 0, profile: 0, validate: 0, benchmark: 0, content: meadow}
+    let normal = {views: 4, autotour: 0, profile: 0, validate: 0, benchmark: 0, content: meadow, audio: 1}
     let variants = (1..4 | each {|views| {name: $'bunny-meadow-($views)-players', config: ($normal | update views $views)} }) | append [
         {name: bunny-meadow-validation, config: ($normal | merge {validate: 1, profile: 1, autotour: 1})}
         {name: bunny-meadow-benchmark, config: ($normal | update benchmark 1)}
+        {name: bunny-meadow-benchmark-no-audio, config: ($normal | merge {benchmark: 1, audio: 0})}
         {name: robot-courtyard-4-players, config: ($normal | update content robot-courtyard)}
         {name: robot-courtyard-validation, config: ($normal | merge {content: robot-courtyard, validate: 1, profile: 1, autotour: 1})}
     ]

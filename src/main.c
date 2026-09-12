@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "bridge.h"
+#include "sound.h"
 #include <t3d/t3d.h>
 _Static_assert(sizeof(T3DVertPacked) == sizeof(packed_vertex_t), "RSP vertex layout");
 _Static_assert(INITIAL_VIEWS >= 1 && INITIAL_VIEWS <= 4, "INITIAL_VIEWS must be 1..4");
@@ -96,7 +97,10 @@ static void init_scene(void) {
 }
 
 static void prepare_scene(void) {
-    if (frame_pending[frame_slot]) rspq_syncpoint_wait(frame_fences[frame_slot]);
+    if (frame_pending[frame_slot]) {
+        rspq_flush();
+        while (!rspq_syncpoint_check(frame_fences[frame_slot])) sound_service();
+    }
     uint64_t start = get_ticks_us();
     scene_prepare(frame_slot);
     triangles = 0;
@@ -169,13 +173,18 @@ int main(void) {
     init_scene();
     for (unsigned i = 0; i < INITIAL_VIEWS % 4; i++) game_command(GAME_CYCLE_VIEWS);
     if (AUTOTOUR) game_command(GAME_TOGGLE_TOUR);
+    sound_init();
+    sound_update(game_status());
+    sound_service(); // Prime output before the first display wait.
     debugf("Bunny Meadow: Zig simulation / RDPQ rasterization / 4 controllers\n");
     uint64_t previous = get_ticks_us();
     uint32_t accumulator = 0;
     unsigned frame_count = 0, fps = 0, benchmark_phase = 0;
     uint64_t fps_time = previous;
     while (1) {
-        surface_t *screen = display_get();
+        sound_service();
+        surface_t *screen;
+        while (!(screen = display_try_get())) sound_service();
         uint64_t now = get_ticks_us();
         uint64_t elapsed = now - previous;
         previous = now;
@@ -189,12 +198,17 @@ int main(void) {
             game_tick(steps);
         }
         uint32_t status = game_status();
+        sound_update(status);
+        sound_service();
         unsigned views = status & 255;
         rdpq_attach(screen, &depth);
         rdpq_clear(RGBA32(42,61,57,255));
         rdpq_clear_z(ZBUF_MAX);
         prepare_scene();
-        for (unsigned i = 0; i < views; i++) draw_scene(i, status);
+        for (unsigned i = 0; i < views; i++) {
+            draw_scene(i, status);
+            sound_service();
+        }
         rdpq_set_scissor(0, 0, 320, 240);
         if (views >= 3) {
             // Keep viewport scissor X aligned to four pixels for RDP fill
@@ -216,14 +230,21 @@ int main(void) {
         frame_fences[frame_slot] = rspq_syncpoint_new();
         frame_pending[frame_slot] = true;
         frame_slot = (frame_slot + 1) % 3;
+        sound_service();
         frame_count++;
         if (now - fps_time >= 1000000) {
             fps = (unsigned)(frame_count * 1000000ULL / (now - fps_time));
+            sound_stats_t audio = sound_take_stats();
+            unsigned audio_us = audio.mix_us / frame_count;
+            (void)audio_us; // Only printed in diagnostic builds.
             frame_count = 0;
             fps_time = now;
 #if PROFILE || BENCHMARK || defined(RDPQ_VALIDATE)
-            debugf("PERF views=%u phase=%u fps=%u cpu_us=%u submit_us=%u triangles=%u\n",
-                views, benchmark_phase, fps, transform_us, submit_us, triangles);
+            debugf("PERF views=%u phase=%u fps=%u cpu_us=%u submit_us=%u triangles=%u "
+                "audio=%u audio_us=%u audio_buffers=%lu audio_gap_us=%lu audio_budget_us=%lu "
+                "audio_sfx=%lu audio_overlap=%lu workload=2\n",
+                views, benchmark_phase, fps, transform_us, submit_us, triangles,
+                AUDIO, audio_us, audio.buffers, audio.max_gap_us, audio.budget_us, audio.starts, audio.overlap);
 #endif
         }
     }

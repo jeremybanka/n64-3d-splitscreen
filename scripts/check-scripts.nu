@@ -8,5 +8,7 @@ def main [] {
     # imported by host Nu. Its integration check belongs to the asset workflow.
     command $nu.current-exe [--no-config-file scripts/test-sdk-identity.nu]
     command $nu.current-exe [--no-config-file scripts/test-mesh-format.nu]
-    print 'PASS: native Nu scripts parse; SDK and mesh fixtures pass'
+    command $nu.current-exe [--no-config-file scripts/make-audio.nu --check]
+    command $nu.current-exe [--no-config-file scripts/test-performance.nu]
+    print 'PASS: native Nu scripts parse; SDK, mesh and audio fixtures pass'
 }
