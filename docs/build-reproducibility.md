@@ -79,6 +79,8 @@ build. There is no hand-maintained source list or approximate import parser.
 The unchanged `mips3+noabicalls`, `-fno-PIC`, ReleaseSmall compilation and audited
 ABI patch/verification run against a temporary output. Only changed object bytes
 replace `build/scene.o`, so a cache hit preserves downstream ELF/ROM timestamps.
+`--content meadow|robot-courtyard` selects the Zig `content` module explicitly;
+the dependency regression checks switching packs and restoring the default.
 
 C compilation fingerprints GCC's preprocessed output, flags, compiler and
 assembler binaries. GCC discovers transitive headers each time, including newly
@@ -104,5 +106,5 @@ fixtures also run in `just check-scripts` without a real SDK. The dependency
 regression compiles temporary projects through the actual recipes, checks new
 and transitive C headers, and replaces a runtime archive in a private SDK copy.
 It also verifies that a no-op full build preserves all project artifacts. CI runs these
-checks before all six ROM variants; it still rejects global-pointer use and
+checks before all eight ROM variants; it still rejects global-pointer use and
 unresolved Zig calls on every verified object.

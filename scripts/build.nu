@@ -8,10 +8,14 @@ const BUILD_SCRIPT = path self
 def same-state [state: path, value: any, output: path] {
     ($output | path exists) and ($state | path exists) and ((open $state) == $value)
 }
-export def build-object [] {
+def check-content [content: string] {
+    if $content not-in [meadow robot-courtyard] { fail '--content must be meadow or robot-courtyard' }
+}
+export def build-object [content: string = meadow] {
+    check-content $content
     mkdir build
     print '[ZIG] src/scene.zig'
-    command zig [build-obj src/scene.zig -target mips64-freestanding-gnuabin32 -mcpu mips3+noabicalls -fno-PIC -O ReleaseSmall -fno-stack-check -femit-bin=build/scene.o.tmp]
+    command zig [build-obj -target mips64-freestanding-gnuabin32 -mcpu mips3+noabicalls -fno-PIC -O ReleaseSmall -fno-stack-check -femit-bin=build/scene.o.tmp --dep content -Mroot=src/scene.zig $'-Mcontent=src/content-($content).zig']
     command zig [run tools/patch_mips_abi.zig -- build/scene.o.tmp]
     command (tool objcopy) [--rename-section .mdebug.abiN32=.mdebug.abiO64 build/scene.o.tmp]
     check-zig-abi build/scene.o.tmp
@@ -19,6 +23,8 @@ export def build-object [] {
 }
 
 export def build-rom [config: record] {
+    let content = $config.content? | default meadow
+    check-content $content
     let install = sdk
     $env.N64_INST = $install
     let tiny = tiny3d
@@ -64,7 +70,7 @@ export def build-rom [config: record] {
         }
         $objects = $objects | append $object
     }
-    build-object
+    build-object $content
     $objects = $objects | append build/scene.o
     let elf = $'build/($ROM).elf'
     let link_flags = [
@@ -103,14 +109,15 @@ export def build-rom [config: record] {
     }
 }
 
-def main [action: string = 'rom', --views: int = 4, --autotour: int = 0, --profile: int = 0, --validate: int = 0, --benchmark: int = 0] {
+def main [action: string = 'rom', --views: int = 4, --autotour: int = 0, --profile: int = 0, --validate: int = 0, --benchmark: int = 0, --content: string = meadow] {
     # Arguments are checked before any build output is touched.
     if $views not-in [1 2 3 4] { fail '--views must be 1, 2, 3, or 4' }
     for value in [$autotour $profile $validate $benchmark] { if $value not-in [0 1] { fail 'Build switches must be 0 or 1' } }
+    check-content $content
     cd $ROOT
     match $action {
-        object => { build-object }
-        rom => { build-rom {views: $views, autotour: $autotour, profile: $profile, validate: $validate, benchmark: $benchmark} }
+        object => { build-object $content }
+        rom => { build-rom {views: $views, autotour: $autotour, profile: $profile, validate: $validate, benchmark: $benchmark, content: $content} }
         clean => { rm --recursive --force build $'($ROM).z64' }
         _ => { fail $'Unknown build action: ($action)' }
     }
