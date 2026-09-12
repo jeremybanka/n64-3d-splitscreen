@@ -9,13 +9,13 @@ export ZIG_GLOBAL_CACHE_DIR := env('ZIG_GLOBAL_CACHE_DIR', justfile_directory() 
 default:
     ^just --list
 
-# Build the ROM; options: --views 1..4, --autotour/--profile/--validate/--benchmark 0|1.
+# Build the ROM; --content meadow|robot-courtyard, --views 1..4, diagnostic switches 0|1.
 build *args:
     def --wrapped main [...args: string] { ^nu --no-config-file scripts/build.nu ...$args }
 
 # Run host tests in Debug or ReleaseSmall.
 test optimize='Debug':
-    def main [optimize: string] { ^zig test src/scene.zig -O $optimize }
+    def main [optimize: string] { ^nu --no-config-file scripts/test-host.nu --optimize $optimize }
 
 fmt:
     ^zig fmt --check src tools/patch_mips_abi.zig
@@ -63,10 +63,11 @@ deploy: build sc64deployer
 debug: sc64deployer
     ^.build/bin/sc64deployer debug
 
-# Regenerate the original rabbit source and export it; optional PNG preview path.
-models preview='':
-    def main [preview: string] {
-        let options = if $preview == '' { [] } else { [--preview $preview] }
-        ^nu --no-config-file scripts/make-model.nu rabbit --output assets/rabbit.blend --overwrite ...$options
-        ^nu --no-config-file scripts/export-mesh.nu --source assets/rabbit.blend --collection Character --output src/generated/rabbit.zig
-    }
+# Export both saved characters without regenerating or modifying their sources.
+models:
+    ^nu --no-config-file scripts/export-mesh.nu --source assets/rabbit.blend --collection Character --output src/generated/rabbit.zig
+    ^nu --no-config-file scripts/export-mesh.nu --source assets/robot.blend --collection Character --output src/generated/robot.zig
+
+# Optional Blender integration: exports, source hashes, recipes and invalid metadata.
+test-models:
+    ^nu --no-config-file scripts/test-blender-export.nu

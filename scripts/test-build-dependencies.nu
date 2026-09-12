@@ -13,13 +13,19 @@ def main [] {
         let object = $scratch | path join build scene.o
         let module = $scratch | path join src nested new.zig
         let embedded = $scratch | path join src value.bin
-        let baseline = 'export fn sample() i32 { return 7; }'
+        let baseline = 'export fn sample() i32 { return @import("content").value; }'
         let build = {|| with-env {N64_INST: $install} { command $nu.current-exe [--no-config-file ($scratch | path join scripts build.nu) object] } }
+        'pub const value: i32 = 7;' | save ($scratch | path join src content-meadow.zig)
+        'pub const value: i32 = 17;' | save ($scratch | path join src content-robot-courtyard.zig)
         $baseline | save $source
         do $build
         let original = snapshot [$object]
         do $build
         assert equal (snapshot [$object]) $original 'No-op object build changed bytes or mtime'
+        with-env {N64_INST: $install} { command $nu.current-exe [--no-config-file ($scratch | path join scripts build.nu) object --content robot-courtyard] }
+        assert ((digest $object) != $original.0.hash) 'Changing the selected content module must rebuild'
+        do $build
+        assert equal (digest $object) $original.0.hash 'Restoring the default content must restore the original object'
         'pub const value: i32 = 11;' | save $module
         'export fn sample() i32 { return @import("nested/new.zig").value; }' | save --force $source
         do $build
@@ -82,7 +88,7 @@ def main [] {
     }
     assert equal (digest $original_libm) $original_hash 'Dependency fixtures must leave the shared SDK unchanged'
     cd $ROOT
-    let config = {views: 4, autotour: 0, profile: 0, validate: 0, benchmark: 0}
+    let config = {views: 4, autotour: 0, profile: 0, validate: 0, benchmark: 0, content: meadow}
     build-rom $config
     let paths = [build/main.o build/scene.o build/n64-3d-splitscreen.elf n64-3d-splitscreen.z64]
     let before = snapshot $paths

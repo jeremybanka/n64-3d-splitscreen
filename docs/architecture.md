@@ -9,7 +9,8 @@ recenter button edges survive render frames that contain no simulation step.
 At startup, `scene.zig` builds indexed world and rabbit meshes in Tiny3D's
 packed vertex layout. Every batch uses at most 64 RSP vertices, with even,
 aligned DMA loads. Vertices are shared when their position, source vertex and
-baked face color agree. The Blender mesh and its flat shading are preserved.
+material, shade and baked face color agree. This keeps different player-tint
+slots separate even if their initial colors match. The Blender mesh and its flat shading are preserved.
 Scenery is grouped spatially so invisible ground tiles, trees, mountains and
 other objects can be skipped per camera. The C adapter records reusable RSP
 command blocks once, including triangle indices and synchronization.
@@ -89,13 +90,19 @@ bridge and use the C API directly from Zig.
 
 ## Extending the sample
 
-Extend `environment()` or supply another indexed mesh, keeping spatial groups
-small enough for useful frustum culling. The mesh builder reports capacity
-exhaustion before writing outside its arrays. Update `scene_bounds` if a new
-character or animation extends beyond the current conservative bounds; the
-host test verifies every packed body/shadow vertex throughout the benchmark.
+Select a content module with `just build --content meadow` (the default) or
+`just build --content robot-courtyard`. Each supplies the mesh, palette, animation
+divisors, shadow height and `environment(draw)` recipe. See the
+[asset workflow](../assets/README.md) to export edited Blender sources or add a
+pack. Keep scenery groups small enough for useful frustum culling.
 
-The normal build uses the unchanged Blender rabbit source. Tiny3D is pinned
+The mesh builder reports capacity exhaustion before writing outside its arrays.
+Actor bounds derive from mesh coordinates and motion amplitudes; the host test
+verifies every packed body/shadow vertex throughout the benchmark for both
+packs. The exporter also predicts packing, and host tests compare its count
+with the actual renderer. C ABI names and hardware adapter code are shared.
+
+The normal build uses the checked-in exported rabbit mesh. Tiny3D is pinned
 at `ec557373e986b5e041cc102a7ff787eb07921937`, before it adopted vector types
 that exist only in libdragon preview. Its source and library are local to
 `.build/tiny3d`; the SDK is not modified. `scripts/bootstrap-tiny3d.nu` fetches

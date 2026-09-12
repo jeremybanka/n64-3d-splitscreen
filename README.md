@@ -71,6 +71,7 @@ just build --views 3 --autotour 1 # animated demonstration
 just build --profile 1           # scene/submission times and triangle count
 just build --validate 1          # libdragon RDP command validation (slow)
 just build --benchmark 1         # three repeatable four-controller workloads
+just build --content robot-courtyard # alternate character, palette, motion and scenery
 just build                       # restores the normal four-player configuration
 ```
 
@@ -89,6 +90,7 @@ rendering, with bounded catch-up after a pause.
 - `src/main.c`: libdragon/Tiny3D adapter for controllers, timing, camera
   matrices, visibility tests, RSP command blocks, depth and presentation.
 - `src/bridge.h`: the explicit fixed-width ABI/data contract.
+- `src/content-*.zig`: selectable mesh, palette, motion and environment recipes.
 - `scripts/model-recipes.nu`: native Nu scene recipes for the sample model.
 - `scripts/export-mesh.nu`: mesh conversion, validation and Zig export.
 - `scripts/blender-adapter.py`: the minimal Blender `bpy` API adapter.
@@ -102,25 +104,23 @@ physics implements ground, world bounds, and player separation, not general
 mesh collision. No audio, save system, or networking is included.
 
 ```sh
-just models  # Blender on macOS; set BLENDER for another executable location
-# Optional preview: just models assets/rabbit-preview.png
+just models  # export saved .blend files; set BLENDER for another executable location
+just test-models # optional Blender integration and source-preservation tests
 ```
 
-This task explicitly regenerates `assets/rabbit.blend` and exports its Character
-collection to the Zig mesh. It overwrites manual source edits. Nu owns scene
-recipes, mesh conversion and validation; the only Python file calls Blender's
-`bpy` API through a JSON request/response adapter. To preserve an edited source,
-export it directly without regenerating it:
-
-```sh
-nu scripts/export-mesh.nu --source assets/rabbit.blend --collection Character --output src/generated/rabbit.zig
-```
+Export preserves each saved `.blend` source and replaces only its generated Zig
+mesh after validation. Nu owns recipes, validation and serialization; the only
+Python file translates Blender's `bpy` data through a JSON adapter. The alternate
+robot courtyard demonstrates replacing content without changing the C adapter.
+See the [asset workflow](assets/README.md) for collection/material metadata,
+coordinates, capacity checks and explicit source generation commands.
 
 ![Rabbit model](assets/rabbit-preview.png)
 
 ## Verification and limits
 
-`just test` runs 12 host tests covering controller isolation, button edges,
+`just test` runs native Nu mesh-validation checks and 12 Zig tests for each
+content pack, covering controller isolation, button edges,
 world bounds, view layouts, RSP packing/budgets, frame-slot isolation and
 animation bounds throughout all three benchmark phases. `just verify` checks the ROM
 header, O64 ELF, implicit runtime calls, and the reserved global pointer.
@@ -128,7 +128,8 @@ header, O64 ELF, implicit runtime calls, and the reserved global pointer.
 GitHub Actions runs separate **Check** and **Test** workflows on main pushes and
 pull requests. Check runs Zig formatting, native Nu parsing and SDK fixtures,
 and actionlint. Test runs the host suite in Debug and ReleaseSmall, then builds and
-verifies all four layouts plus validation and benchmark ROMs. Download those
+verifies all four default layouts, validation and benchmark ROMs, and two
+alternate-content ROMs. Download those
 ROMs from the Test run's artifacts. Run the same commands locally:
 
 ```sh
