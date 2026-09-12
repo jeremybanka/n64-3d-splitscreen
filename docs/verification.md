@@ -134,7 +134,7 @@ unchanged by the renderer optimization.
 
 The original graphics-only captures above use benchmark workload 1. Audio
 integration changes the final phase to simultaneous four-player hops and labels
-its PERF records `workload=2 audio=0|1`. New `AUDIO=0` and `AUDIO=1` ROMs run the
+its PERF records `workload=2 audio=0|1`. New `--audio 0` and `--audio 1` ROMs run the
 same workload for comparison. The old FPS range does not establish the new
 combined graphics/audio budget.
 

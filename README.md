@@ -114,7 +114,7 @@ Trees, rocks, mushrooms, and the carrot monument are decorative; the sample
 physics implements ground, world bounds, and player separation, not general
 mesh collision. An original music loop and overlapping per-player hop sounds
 exercise libdragon's RSP mixer. No save system or networking is included.
-Enable `COLLISION_DEMO=1` for three explicit solid boxes, swept wall sliding, and
+Build with `just build --collision 1` for three explicit solid boxes, swept wall sliding, and
 camera shortening. See [arena queries and supported limits](docs/collision.md).
 
 ```sh
