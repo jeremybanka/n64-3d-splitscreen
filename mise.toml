@@ -1,82 +1,9 @@
+# mise installs pinned tools; Justfile owns project tasks.
 [tools]
+"github:nushell/nushell" = "0.115.1"
+just = "1.58.0"
 zig = "0.16.0"
 actionlint = "1.7.12"
-shellcheck = "0.11.0"
 
 [env]
-N64_INST = "{{config_root}}/.build/libdragon"
 ZIG_GLOBAL_CACHE_DIR = "{{config_root}}/.zig-cache/global"
-
-[tasks.test]
-description = "Run the host-side Zig game-engine tests"
-run = "zig test src/scene.zig"
-
-[tasks.fmt]
-description = "Check Zig source formatting"
-run = "zig fmt --check src tools/patch_mips_abi.zig"
-
-[tasks.check]
-description = "Run the same formatting, script, and workflow checks as CI"
-depends = ["fmt", "check:scripts", "check:workflows"]
-
-[tasks."check:scripts"]
-description = "Lint shell scripts and check Python syntax without Blender"
-run = ["shellcheck scripts/*.sh", "python3 -m py_compile scripts/*.py", "python3 scripts/test-sdk-identity.py"]
-
-[tasks."check:workflows"]
-description = "Validate GitHub Actions workflows"
-run = "actionlint"
-
-[tasks."test:build"]
-description = "Verify SDK identity fixtures and real incremental Zig dependencies"
-run = ["python3 scripts/test-sdk-identity.py", "python3 scripts/test-build-dependencies.py"]
-
-[tasks."test:rom"]
-description = "Build and verify all split-screen layouts and diagnostic ROMs"
-run = "./scripts/test-rom.sh"
-
-[tasks.setup]
-description = "Build the pinned libdragon SDK and Tiny3D RSP renderer"
-run = "./scripts/bootstrap-libdragon.sh && ./scripts/bootstrap-tiny3d.sh"
-
-[tasks.build]
-description = "Build the N64 ROM"
-depends = ["test"]
-run = "make"
-
-[tasks.verify]
-description = "Build and inspect the N64 ROM and linked ABI"
-depends = ["build"]
-run = "./scripts/verify-rom.sh"
-
-[tasks.emulator-setup]
-description = "Install the pinned ares v147 macOS emulator"
-run = "./scripts/bootstrap-ares.sh"
-
-[tasks.emulate]
-description = "Build and run the ROM in ares using the stable OpenGL backend"
-depends = ["build", "emulator-setup"]
-run = "./scripts/run-ares.sh"
-
-[tasks.docs]
-description = "Refresh local documentation snapshots from upstream"
-run = "./scripts/sync-docs.sh"
-
-[tasks.sc64deployer]
-description = "Build the pinned SummerCart64 deployment utility"
-tools = { rust = "1.98.0" }
-run = "./scripts/bootstrap-sc64deployer.sh"
-
-[tasks.deploy]
-description = "Build and upload the ROM to a USB-connected SummerCart64"
-depends = ["build", "sc64deployer"]
-run = "./.build/bin/sc64deployer upload n64-3d-splitscreen.z64 --save-type none"
-
-[tasks.debug]
-description = "Open the SummerCart64 debug terminal"
-depends = ["sc64deployer"]
-run = "./.build/bin/sc64deployer debug"
-
-[tasks.models]
-description = "Rebuild the editable Blender rabbit and the ROM mesh"
-run = "make models"

@@ -16,7 +16,7 @@ concurrency:
 
 defaults:
   run:
-    shell: bash
+    shell: nu --no-config-file {0}
 
 jobs:
   Formatting:
@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
-      - run: mise run fmt
+      - run: just fmt
 
   Scripts:
     runs-on: ubuntu-24.04
@@ -33,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
-      - run: mise run check:scripts
+      - run: just check-scripts
 
   Workflows:
     runs-on: ubuntu-24.04
@@ -41,5 +41,5 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
-      - run: mise run check:workflows
+      - run: just check-workflows
 
