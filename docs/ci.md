@@ -17,7 +17,7 @@ secrets. No workflow publishes releases or deploys to hardware.
 | Job | Local command | Coverage |
 | --- | --- | --- |
 | Formatting | `just fmt` | Zig source, generated mesh, and ABI patch tool formatting |
-| Scripts | `just check-scripts` | Native Nu parsing, isolated SDK identity fixtures, mesh validation/serialization regressions, original WAV verification and eight audio/benchmark test groups |
+| Scripts | `just check-scripts` | Native Nu parsing, isolated SDK identity fixtures, mesh validation/serialization regressions, original WAV/texture verification, eight audio/benchmark test groups and memory capture checks |
 | Workflows | `just check-workflows` | actionlint, including expressions, action inputs, and embedded shell commands |
 
 `just check` runs all three. Each job has a five-minute timeout. Tool

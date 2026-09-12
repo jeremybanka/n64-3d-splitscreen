@@ -57,6 +57,74 @@ static rspq_syncpoint_t frame_fences[3];
 static bool frame_pending[3];
 static unsigned frame_slot;
 
+_Static_assert(sizeof(environment_blocks) / sizeof(environment_blocks[0]) ==
+    sizeof(scene_environment.batches) / sizeof(scene_environment.batches[0]), "Draw block capacity must match mesh batches");
+_Static_assert(sizeof(viewports) / sizeof(viewports[0]) ==
+    sizeof(scene_frames) / sizeof(scene_frames[0]), "Camera and animation frame slots must match");
+
+/* Defaults let the diagnostics describe the flat/silent base as well as the
+ * optional integrations, whose Make options supply these definitions. */
+#ifndef CONTENT_NAME
+#define CONTENT_NAME "meadow"
+#endif
+#ifndef AUDIO
+#define AUDIO 0
+#endif
+#ifndef TEXTURED
+#define TEXTURED 0
+#endif
+static unsigned sampled_min_free = UINT32_MAX;
+
+static const char *video_name(void) {
+    switch (get_tv_type()) {
+        case TV_NTSC: return "NTSC";
+        case TV_PAL: return "PAL";
+        case TV_MPAL: return "MPAL";
+        default: return "UNKNOWN";
+    }
+}
+
+static void report_capacities(const surface_t *depth) {
+#ifdef RDPQ_VALIDATE
+    const unsigned validate = 1;
+#else
+    const unsigned validate = 0;
+#endif
+    debugf("CONFIG schema=1 content=%s audio=%u textured=%u collision=%u benchmark=%u validate=%u initial_views=%u\n",
+        CONTENT_NAME, AUDIO, TEXTURED, COLLISION_DEMO, BENCHMARK, validate, INITIAL_VIEWS);
+    debugf("CAPACITY mesh_bytes=%u mesh_vertices=%u mesh_batches=%u mesh_indices=%u "
+        "animated_vertices=%u packed_bytes=%u frame_slots=%u ports=%u meshes_bytes=%u animation_bytes=%u "
+        "width=%u height=%u color_bpp=%u color_buffers=%u depth_stride=%u depth_height=%u\n",
+        (unsigned)sizeof(mesh_t), (unsigned)(sizeof(scene_environment.vertices) / sizeof(packed_vertex_t) * 2),
+        (unsigned)(sizeof(scene_environment.batches) / sizeof(batch_t)), (unsigned)sizeof(scene_environment.indices),
+        (unsigned)(sizeof(scene_frames[0][0]) / sizeof(packed_vertex_t) * 2), (unsigned)sizeof(packed_vertex_t),
+        (unsigned)(sizeof(scene_frames) / sizeof(scene_frames[0])), (unsigned)(sizeof(scene_frames[0]) / sizeof(scene_frames[0][0])),
+        (unsigned)(sizeof(scene_environment) + sizeof(scene_rabbit)), (unsigned)sizeof(scene_frames),
+        (unsigned)display_get_width(), (unsigned)display_get_height(), (unsigned)display_get_bitdepth(),
+        (unsigned)display_get_num_buffers(), depth->stride, depth->height);
+}
+
+static void report_memory(const char *stage, unsigned elapsed_ms, const surface_t *depth) {
+    heap_stats_t heap;
+    sys_get_heap_stats(&heap);
+    const unsigned ram = (unsigned)get_memory_size();
+    // Physical address of heap start includes the low exception-vector area.
+    const unsigned resident = (unsigned)((uintptr_t)HEAP_START_ADDR & 0x1fffffff);
+    const unsigned zero_bytes = (unsigned)((uintptr_t)__bss_end - (uintptr_t)__rom_end);
+    assertf(heap.total > 0 && heap.used >= 0 && heap.used <= heap.total && resident + (unsigned)heap.total <= ram,
+        "Invalid heap accounting");
+    const unsigned available = (unsigned)(heap.total - heap.used);
+    if (available < sampled_min_free) sampled_min_free = available;
+    const unsigned color_bytes = display_get_width() * display_get_height() * display_get_bitdepth() * display_get_num_buffers();
+    const unsigned depth_bytes = (unsigned)depth->stride * depth->height;
+    debugf("MEMORY schema=1 stage=%s elapsed_ms=%u ram=%u expanded=%u tv=%s resident=%u zero_bytes=%u "
+        "heap_total=%u heap_used=%u heap_free=%u sampled_min_free=%u reserved=%u color_bytes=%u depth_bytes=%u\n",
+        stage, elapsed_ms, ram, is_memory_expanded(), video_name(), resident, zero_bytes,
+        (unsigned)heap.total, (unsigned)heap.used, available, sampled_min_free,
+        ram - resident - (unsigned)heap.total, color_bytes, depth_bytes);
+}
+
+
 static rspq_block_t *record_mesh(const mesh_t *mesh, packed_vertex_t *vertices, unsigned first, unsigned end) {
     rspq_block_begin();
     for (unsigned i = first; i < end; i++) {
@@ -106,6 +174,7 @@ static void prepare_scene(void) {
     }
     uint64_t start = get_ticks_us();
     scene_prepare(frame_slot);
+    assertf(scene_status() == 0, "Scene capacity or packed coordinate range exceeded");
     triangles = 0;
     for (unsigned p = 0; p < 4; p++)
         data_cache_hit_writeback(scene_frames[frame_slot][p], ((scene_rabbit.vertex_count + 1) / 2) * sizeof(packed_vertex_t));
@@ -181,7 +250,11 @@ int main(void) {
     sound_update(game_status());
     sound_service(); // Prime output before the first display wait.
     debugf("Bunny Meadow: Zig simulation / RDPQ rasterization / 4 controllers; content=%s textured=%u\n", CONTENT_NAME, TEXTURED);
-    uint64_t previous = get_ticks_us();
+    report_capacities(&depth);
+    report_memory("init", 0, &depth);
+    const uint64_t memory_start = get_ticks_us();
+    unsigned memory_seconds = 0;
+    uint64_t previous = memory_start;
     uint32_t accumulator = 0;
     unsigned frame_count = 0, fps = 0, benchmark_phase = 0;
     uint64_t fps_time = previous;
@@ -243,6 +316,9 @@ int main(void) {
             (void)audio_us; // Only printed in diagnostic builds.
             frame_count = 0;
             fps_time = now;
+            memory_seconds++;
+            if (memory_seconds == 1 || memory_seconds % 10 == 0)
+                report_memory("run", (unsigned)((now - memory_start) / 1000), &depth);
 #if PROFILE || BENCHMARK || defined(RDPQ_VALIDATE)
             debugf("PERF views=%u phase=%u fps=%u cpu_us=%u submit_us=%u triangles=%u "
                 "audio=%u audio_us=%u audio_buffers=%lu audio_gap_us=%lu audio_budget_us=%lu "

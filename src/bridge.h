@@ -29,6 +29,8 @@ uint32_t game_audio_events(void);
 /* scene_init option bit 0 enables the ground texture. */
 uint32_t scene_init(uint32_t options);
 uint32_t scene_prepare(uint32_t frame);
+/* Access overflow through the scalar seam; C must not assume small-data placement. */
+uint32_t scene_status(void);
 /* Packed RSP data and fixed-width camera inputs; no aggregate calls. */
 typedef struct { int16_t pos_a[3]; uint16_t norm_a; int16_t pos_b[3]; uint16_t norm_b; uint32_t color_a, color_b; int16_t uv_a[2], uv_b[2]; } packed_vertex_t;
 typedef struct { uint32_t vertex_offset, vertex_count, index_offset, index_count; } batch_t;

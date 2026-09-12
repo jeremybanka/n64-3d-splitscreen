@@ -127,7 +127,7 @@ labels untagged logs as historical and rejects mixed audio modes/workloads in
 one capture. `--audio legacy --textured legacy --collision legacy` explicitly selects old captures. Never report the
 old graphics-only FPS range as a measured audio-enabled result.
 
-Automated coverage includes 37 Zig tests per content pack in Debug/ReleaseSmall,
+Automated coverage includes 38 Zig tests per content pack in Debug/ReleaseSmall,
 native asset/workload tests, C material-state tests, original WAV verification,
 eight native audio and benchmark test groups, and twenty-two ROM/ABI variants
 covering layouts, validation, both benchmark audio modes, collision combinations, content packs and
