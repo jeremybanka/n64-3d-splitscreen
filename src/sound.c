@@ -7,7 +7,7 @@ _Static_assert(AUDIO == 0 || AUDIO == 1, "AUDIO must be 0 or 1");
 static sound_stats_t stats;
 #if AUDIO
 #define AUDIO_BUFFERS 6
-static wav64_t music, hop;
+static wav64_t music, hop[4];
 static bool paused;
 static uint64_t last_service;
 #endif
@@ -20,10 +20,14 @@ void sound_init(void) {
     mixer_set_vol(0.85f);
     wav64_open(&music, "rom:/meadow.wav64");
     wav64_set_loop(&music, true);
-    wav64_open(&hop, "rom:/hop.wav64");
     mixer_ch_set_vol(0, 0.55f, 0.55f);
-    for (unsigned p = 0; p < 4; p++)
+    for (unsigned p = 0; p < 4; p++) {
+        // The pinned VADPCM decoder owns a file cursor and decode history.
+        // Each independently advancing voice needs its own decoder instance;
+        // all four instances still stream the same single ROM asset.
+        wav64_open(&hop[p], "rom:/hop.wav64");
         mixer_ch_set_vol_pan(p + 1, 0.65f, 0.3f + 0.4f * p / 3.0f);
+    }
     // A conservative service-gap guard, not a measured AI underrun counter.
     // Leave two buffers of margin for the hardware queue and an in-flight mix.
     stats.budget_us = (uint64_t)(AUDIO_BUFFERS - 2) * audio_get_buffer_length() * 1000000 / audio_get_frequency();
@@ -46,7 +50,7 @@ void sound_update(uint32_t status) {
         if (paused || !(status & (1u << (16 + p))) || events & (1u << (4 + p)))
             mixer_ch_stop(p + 1);
         if (!paused && (status & (1u << (16 + p))) && (events & (1u << p))) {
-            wav64_play(&hop, p + 1); // Replaces only this player's previous SFX.
+            wav64_play(&hop[p], p + 1); // Replaces only this player's previous SFX.
             stats.starts++;
         }
     }

@@ -33,6 +33,13 @@ hidden participants still make sound. The low source peaks and master/channel
 attenuation leave headroom for simultaneous effects, but listening validation
 is still required before treating the sample mix as final.
 
+Each effect channel opens its own `wav64_t` for the same `hop.wav64` asset.
+The pinned VADPCM decoder keeps a mutable file cursor and decode history in
+that instance. Sharing one instance across independently advancing channels
+caused an out-of-bounds read assertion during the simultaneous-hop benchmark
+in ares. Separate instances preserve each voice's cursor without duplicating
+the ROM asset or preloading its PCM data.
+
 To replace content, put new mono PCM WAVs at the same source paths and build.
 To add a sound, add its conversion input in `scripts/build-audio.nu`, open its WAV64
 in `sound_init`, and choose its event bit and channel policy explicitly.
@@ -133,6 +140,13 @@ eight native audio and benchmark test groups, and twenty-two ROM/ABI variants
 covering layouts, validation, both benchmark audio modes, collision combinations, content packs and
 textured builds. Listening, actual buffer
 starvation and combined performance observations remain pending.
+
+`just test` also compiles the production C sound adapter with a stateful host
+stream fixture. It covers simultaneous and staggered voice reads, retriggering,
+participant removal, pause/resume, stop-before-start, music looping and audio
+disabled. Run it alone with `nu --no-config-file scripts/test-sound.nu`. This
+regression checks decoder ownership and lifecycle; actual VADPCM/RSP playback
+still requires the emulator or hardware benchmark above.
 
 Run `nu --no-config-file scripts/test-performance.nu` for capture failure cases, strict integer
 fields, PCM rounding/RIFF layout, and native CLI exit-status checks. Other Nu
