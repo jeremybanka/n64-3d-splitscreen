@@ -3,13 +3,34 @@
 #include <stdint.h>
 /* Callable seam: at most one uint32_t argument and one uint32_t result. */
 uint32_t game_reset(uint32_t unused);
+/* Optional obstacle demo; configure before scene_init. Resets world positions. */
+uint32_t game_collision_demo(uint32_t enabled);
+/* Mask bit N always refers to controller/player port N; upper bits ignored. */
+uint32_t game_connections(uint32_t mask);
+uint32_t game_participants(uint32_t mask);
+uint32_t game_views(uint32_t mask); /* Visible subset of participants. */
+uint32_t game_view_port(uint32_t slot); /* Ascending physical port, or 4. */
+uint32_t game_pause(uint32_t paused); /* Zero resumes; nonzero pauses. */
+/* Input: signed X/Y bytes, A press 16, look left/right 17/18, B press 19,
+ * held A/B 20/21, any held sample command 22, physical port 30/31.
+ * Returns 1 when sample commands may be handled, 0 while disconnected/rearming. */
 uint32_t game_input(uint32_t packed);
 uint32_t game_tick(uint32_t steps);
+enum { GAME_CYCLE_VIEWS = 1, GAME_TOGGLE_TOUR, GAME_RESTART, GAME_TOGGLE_PAUSE };
 uint32_t game_command(uint32_t command);
+/* Status: count 0..7, tour 8, pause 9, connections 12..15,
+ * participants 16..19, visible ports 20..23. */
+#define GAME_STATUS_TOUR (1u << 8)
+#define GAME_STATUS_PAUSED (1u << 9)
 uint32_t game_status(void);
 uint32_t game_benchmark(uint32_t steps);
-uint32_t scene_init(uint32_t unused);
+/* Drain once after simulation: hops 0..3, stop-player 4..7, music restart 8. */
+uint32_t game_audio_events(void);
+/* scene_init option bit 0 enables the ground texture. */
+uint32_t scene_init(uint32_t options);
 uint32_t scene_prepare(uint32_t frame);
+/* Access overflow through the scalar seam; C must not assume small-data placement. */
+uint32_t scene_status(void);
 /* Packed RSP data and fixed-width camera inputs; no aggregate calls. */
 typedef struct { int16_t pos_a[3]; uint16_t norm_a; int16_t pos_b[3]; uint16_t norm_b; uint32_t color_a, color_b; int16_t uv_a[2], uv_b[2]; } packed_vertex_t;
 typedef struct { uint32_t vertex_offset, vertex_count, index_offset, index_count; } batch_t;
@@ -23,6 +44,8 @@ typedef struct { int32_t x, y, w, h; } viewport_t;
 typedef struct { int32_t eye[3], target[3]; } camera_t;
 #define FRAME_PAIRS 384
 extern mesh_t scene_environment, scene_rabbit;
+enum { MATERIAL_FLAT = 0, MATERIAL_GROUND = 1 };
+extern uint32_t scene_environment_materials[64];
 extern packed_vertex_t scene_frames[3][4][FRAME_PAIRS];
 extern viewport_t scene_views[4];
 extern camera_t scene_cameras[4];

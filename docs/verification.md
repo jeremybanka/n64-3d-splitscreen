@@ -1,5 +1,11 @@
 # Emulator verification — 2026-09-06
 
+For the later template PRs, see the [September 17–18 gallery smoke checks](../gallery/README.md).
+That session includes the new content/material/collision scenes, an emulated
+controller disconnect/reconnect, and an audio decoder regression with a locally
+tested repair awaiting publication. The historical measurements below still describe their original
+ROMs; the gallery does not replace the sustained performance or hardware gates.
+
 The initial template was checked in as `7d8ed1a` before optimization. That
 renderer reached 12 FPS at rest and approximately 8 FPS with all four cameras
 moving. Its measured CPU geometry/submission times were 68/51 ms in motion.
@@ -35,8 +41,12 @@ Benchmark ROM SHA-256:
 `5412acf84a18b6d2746f0bada1106a384c7ded379ff07fb9ffd180fe4a049817`.
 
 ```sh
-nu scripts/check-performance.nu docs/performance.txt
+nu --no-config-file scripts/check-performance.nu docs/performance.txt --audio legacy --textured legacy --collision legacy
 ```
+
+This historical capture has no content/material tags. Current captures include
+those tags and must select `--textured off` or `--textured on`; the textured
+workload has no recorded FPS result yet.
 
 The checker requires four views throughout, at least 15 complete samples
 from each phase, no diagnostic errors, and a minimum of 40 FPS in every sample.
@@ -94,9 +104,9 @@ The [two-player picture](screenshots/optimization/path-before-fix.png) exposed Z
 path discs. The final path is a non-overlapping annulus above the meadow;
 the corrected layout pictures show a clean ring without the stippled streaks.
 
-## Hardware command validation and correctness
+## RDP command validation in ares and correctness
 
-`just build --benchmark 1 --validate 1` completed **199 one-second diagnostic samples**
+The archived benchmark with RDPQ validation enabled completed **199 one-second diagnostic samples**
 across all three phases with no `RDPQ_VALIDATION` errors or warnings.
 See the [captured validation log](rdpq-validation.txt). Validation adds heavy
 instrumentation overhead, so that build is excluded from performance acceptance.
@@ -124,3 +134,36 @@ The final ROM starts in four-player mode with benchmark, profiling, validation
 and automatic tour disabled. Player 1 Start cycles layouts; Z enables the tour.
 The editable Blender 5.2.1 source and its 130-vertex/188-triangle rabbit are
 unchanged by the renderer optimization.
+
+
+## Audio integration: validation still pending
+
+The original graphics-only captures above use benchmark workload 1. Audio
+integration changes the final phase to simultaneous four-player hops and labels
+its PERF records `workload=2 audio=0|1`. New `--audio 0` and `--audio 1` ROMs run the
+same workload for comparison. The old FPS range does not establish the new
+combined graphics/audio budget.
+
+Host event/parser tests and ROM/ABI builds validate the integration's code and
+packaging. Interactive listening, pause/reset latency, four-effect overlap and
+sustained workload-2 performance still need emulator or hardware observation;
+no such results are claimed here. Follow [the comparison procedure](audio.md#benchmark-comparison).
+
+## 2026-09-08 unchanged-main smoke observation
+
+Before integrating the template issue PRs, the original checkout reran formatting,
+script/workflow checks, both host optimization modes and the six then-existing
+ROM/ABI variants. Its normal and benchmark hashes matched the archived hashes
+above. A smoke check then loaded the unchanged normal ROM in pinned ares v147 and observed
+four correctly displayed meadow views with a 55 FPS reading. The unchanged
+benchmark ROM was loaded and seen starting. This was a brief smoke observation,
+not a sustained new performance capture or a confirmed PAL/NTSC test.
+
+The Mac subsequently locked and computer use could not unlock it. No visual,
+listening or performance verification of the new asset/audio/material/lifecycle/
+collision/diagnostic combination was performed. The earlier 115-sample capture
+belongs to the earlier untextured, pre-audio ROM; it does not establish the new
+combination's performance. Worktree paths/debug symbols can affect ROM bytes,
+so associate each new capture with its own SHA-256 rather than borrowing an old
+hash. Current physical evidence and outstanding checks are in the
+[hardware record](hardware.md) and [release gate](release-gate.md).

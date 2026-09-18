@@ -18,8 +18,8 @@ pub fn environment(comptime draw: type) void {
         const x = (@as(i32, @intCast(ix)) * 8 - 16) * Q;
         const z = (@as(i32, @intCast(iz)) * 8 - 16) * Q;
         const color: u32 = if ((ix + iz) % 2 == 0) 0xa6b9c3ff else 0x94aab7ff;
-        draw.worldTri(.{ .x = x, .z = z }, .{ .x = x + 8 * Q, .z = z + 8 * Q }, .{ .x = x + 8 * Q, .z = z }, color);
-        draw.worldTri(.{ .x = x, .z = z }, .{ .x = x, .z = z + 8 * Q }, .{ .x = x + 8 * Q, .z = z + 8 * Q }, color);
+        draw.groundTri(.{ .x = x, .z = z }, .{ .x = x + 8 * Q, .z = z + 8 * Q }, .{ .x = x + 8 * Q, .z = z }, color);
+        draw.groundTri(.{ .x = x, .z = z }, .{ .x = x, .z = z + 8 * Q }, .{ .x = x + 8 * Q, .z = z + 8 * Q }, color);
     };
     // A four-sided beacon replaces the carrot; towers replace trees.
     draw.group();

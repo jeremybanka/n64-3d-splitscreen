@@ -17,7 +17,7 @@ secrets. No workflow publishes releases or deploys to hardware.
 | Job | Local command | Coverage |
 | --- | --- | --- |
 | Formatting | `just fmt` | Zig source, generated mesh, and ABI patch tool formatting |
-| Scripts | `just check-scripts` | Native Nu parsing, isolated SDK identity fixtures and mesh validation/serialization regressions |
+| Scripts | `just check-scripts` | Native Nu parsing, isolated SDK identity fixtures, mesh validation/serialization regressions, original WAV/texture verification, eight audio/benchmark test groups and memory capture checks |
 | Workflows | `just check-workflows` | actionlint, including expressions, action inputs, and embedded shell commands |
 
 `just check` runs all three. Each job has a five-minute timeout. Tool
@@ -28,7 +28,7 @@ SummerCart64 task, so normal development and CI do not install it.
 ## Test
 
 The two **Zig (Debug)** and **Zig (ReleaseSmall)** jobs each run the full host
-suite for both content packs, plus native Nu mesh-validation checks,
+suite for both content packs, plus native Nu asset/workload checks and C material-state tests,
 with a five-minute timeout. Debug preserves runtime safety checks;
 ReleaseSmall exercises the optimization mode used for the N64 object. A matrix
 failure does not cancel the other configuration.
@@ -66,20 +66,28 @@ build preserves the C/Zig objects, ELF and ROM bytes and modification times.
 New/transitive C headers and runtime archive replacement are also checked in
 private copies. This step uses the installed SDK but never writes to it.
 
+Audio dependency fixtures additionally cover changed/missing converted sources,
+stale-file exclusion, audio-off builds without WAV inputs, restoring audio, and
+unchanged output bytes/timestamps. They use private project storage.
+
 `just test-rom` starts with `just clean`, then builds:
 
 - One-, two-, three-, and four-player layouts.
 - Four-player validation/profiling with the automatic tour.
-- The four-player benchmark configuration.
+- The four-player benchmark with audio enabled and disabled (identical workload 2).
 - Robot courtyard in four-player and validation/tour configurations.
+- Textured meadow in all four layouts, plus validation/tour and benchmark.
+- Textured robot courtyard in validation/tour and benchmark configurations.
+- Collision demo in normal, validation and benchmark modes.
+- Combined textured/collision validation and benchmark configurations.
 
 Every variant passes `scripts/verify-rom.nu`: big-endian ROM magic, O64 linked
 ELF, no implicit external calls from Zig, and no use of the reserved MIPS global
 pointer. The task leaves the normal four-player ROM as the default output.
 
-The `n64-roms-<commit>` artifact contains all eight `.z64` variants and
+The `n64-roms-<commit>` artifact contains all twenty-two `.z64` variants and
 `SHA256SUMS`, retained for 14 days. These checks establish that the game builds
-and meets the static ABI contract. They do not boot the ROM or measure FPS.
+and meets the static ABI contract. They do not boot the ROM, listen to audio, or measure FPS.
 Blender-specific integration tests are optional locally (`just test-models`);
 CI checks generated data without requiring Blender.
 Visual correctness, input behavior in the emulator, RDPQ runtime validation,

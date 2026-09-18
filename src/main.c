@@ -4,9 +4,12 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "bridge.h"
+#include "sound.h"
+#include "material.h"
 #include <t3d/t3d.h>
 _Static_assert(sizeof(T3DVertPacked) == sizeof(packed_vertex_t), "RSP vertex layout");
 _Static_assert(INITIAL_VIEWS >= 1 && INITIAL_VIEWS <= 4, "INITIAL_VIEWS must be 1..4");
+_Static_assert(COLLISION_DEMO == 0 || COLLISION_DEMO == 1, "COLLISION_DEMO must be 0 or 1");
 
 static const color_t player_colors[4] = {
     {239,137,101,255}, {122,184,232,255}, {234,199,98,255}, {178,154,223,255}
@@ -14,6 +17,10 @@ static const color_t player_colors[4] = {
 
 static void input(void) {
     joypad_poll();
+    uint32_t connected = 0;
+    for (unsigned i = 0; i < 4; i++)
+        if (joypad_is_connected((joypad_port_t)i)) connected |= 1u << i;
+    game_connections(connected);
     for (unsigned i = 0; i < 4; i++) {
         joypad_port_t port = (joypad_port_t)i;
         joypad_inputs_t stick = joypad_get_inputs(port);
@@ -29,11 +36,15 @@ static void input(void) {
         if (held.c_left || held.l) word |= 1 << 17;
         if (held.c_right || held.r) word |= 1 << 18;
         if (pressed.b) word |= 1 << 19;
-        game_input(word);
-        if (i == 0) {
-            if (pressed.start) game_command(1);
-            if (pressed.z) game_command(2);
-            if (pressed.c_down) game_command(3);
+        if (held.a) word |= 1 << 20;
+        if (held.b) word |= 1 << 21;
+        if (held.start || held.z || held.c_down || held.c_up) word |= 1 << 22;
+        bool ready = game_input(word) != 0;
+        if (i == 0 && ready) {
+            if (pressed.start) game_command(GAME_CYCLE_VIEWS);
+            if (pressed.z) game_command(GAME_TOGGLE_TOUR);
+            if (pressed.c_down) game_command(GAME_RESTART);
+            if (pressed.c_up) game_command(GAME_TOGGLE_PAUSE);
         }
     }
 }
@@ -45,6 +56,74 @@ static int16_t environment_bounds[64][6];
 static rspq_syncpoint_t frame_fences[3];
 static bool frame_pending[3];
 static unsigned frame_slot;
+
+_Static_assert(sizeof(environment_blocks) / sizeof(environment_blocks[0]) ==
+    sizeof(scene_environment.batches) / sizeof(scene_environment.batches[0]), "Draw block capacity must match mesh batches");
+_Static_assert(sizeof(viewports) / sizeof(viewports[0]) ==
+    sizeof(scene_frames) / sizeof(scene_frames[0]), "Camera and animation frame slots must match");
+
+/* Defaults let the diagnostics describe the flat/silent base as well as the
+ * optional integrations, whose Make options supply these definitions. */
+#ifndef CONTENT_NAME
+#define CONTENT_NAME "meadow"
+#endif
+#ifndef AUDIO
+#define AUDIO 0
+#endif
+#ifndef TEXTURED
+#define TEXTURED 0
+#endif
+static unsigned sampled_min_free = UINT32_MAX;
+
+static const char *video_name(void) {
+    switch (get_tv_type()) {
+        case TV_NTSC: return "NTSC";
+        case TV_PAL: return "PAL";
+        case TV_MPAL: return "MPAL";
+        default: return "UNKNOWN";
+    }
+}
+
+static void report_capacities(const surface_t *depth) {
+#ifdef RDPQ_VALIDATE
+    const unsigned validate = 1;
+#else
+    const unsigned validate = 0;
+#endif
+    debugf("CONFIG schema=1 content=%s audio=%u textured=%u collision=%u benchmark=%u validate=%u initial_views=%u\n",
+        CONTENT_NAME, AUDIO, TEXTURED, COLLISION_DEMO, BENCHMARK, validate, INITIAL_VIEWS);
+    debugf("CAPACITY mesh_bytes=%u mesh_vertices=%u mesh_batches=%u mesh_indices=%u "
+        "animated_vertices=%u packed_bytes=%u frame_slots=%u ports=%u meshes_bytes=%u animation_bytes=%u "
+        "width=%u height=%u color_bpp=%u color_buffers=%u depth_stride=%u depth_height=%u\n",
+        (unsigned)sizeof(mesh_t), (unsigned)(sizeof(scene_environment.vertices) / sizeof(packed_vertex_t) * 2),
+        (unsigned)(sizeof(scene_environment.batches) / sizeof(batch_t)), (unsigned)sizeof(scene_environment.indices),
+        (unsigned)(sizeof(scene_frames[0][0]) / sizeof(packed_vertex_t) * 2), (unsigned)sizeof(packed_vertex_t),
+        (unsigned)(sizeof(scene_frames) / sizeof(scene_frames[0])), (unsigned)(sizeof(scene_frames[0]) / sizeof(scene_frames[0][0])),
+        (unsigned)(sizeof(scene_environment) + sizeof(scene_rabbit)), (unsigned)sizeof(scene_frames),
+        (unsigned)display_get_width(), (unsigned)display_get_height(), (unsigned)display_get_bitdepth(),
+        (unsigned)display_get_num_buffers(), depth->stride, depth->height);
+}
+
+static void report_memory(const char *stage, unsigned elapsed_ms, const surface_t *depth) {
+    heap_stats_t heap;
+    sys_get_heap_stats(&heap);
+    const unsigned ram = (unsigned)get_memory_size();
+    // Physical address of heap start includes the low exception-vector area.
+    const unsigned resident = (unsigned)((uintptr_t)HEAP_START_ADDR & 0x1fffffff);
+    const unsigned zero_bytes = (unsigned)((uintptr_t)__bss_end - (uintptr_t)__rom_end);
+    assertf(heap.total > 0 && heap.used >= 0 && heap.used <= heap.total && resident + (unsigned)heap.total <= ram,
+        "Invalid heap accounting");
+    const unsigned available = (unsigned)(heap.total - heap.used);
+    if (available < sampled_min_free) sampled_min_free = available;
+    const unsigned color_bytes = display_get_width() * display_get_height() * display_get_bitdepth() * display_get_num_buffers();
+    const unsigned depth_bytes = (unsigned)depth->stride * depth->height;
+    debugf("MEMORY schema=1 stage=%s elapsed_ms=%u ram=%u expanded=%u tv=%s resident=%u zero_bytes=%u "
+        "heap_total=%u heap_used=%u heap_free=%u sampled_min_free=%u reserved=%u color_bytes=%u depth_bytes=%u\n",
+        stage, elapsed_ms, ram, is_memory_expanded(), video_name(), resident, zero_bytes,
+        (unsigned)heap.total, (unsigned)heap.used, available, sampled_min_free,
+        ram - resident - (unsigned)heap.total, color_bytes, depth_bytes);
+}
+
 
 static rspq_block_t *record_mesh(const mesh_t *mesh, packed_vertex_t *vertices, unsigned first, unsigned end) {
     rspq_block_begin();
@@ -59,7 +138,8 @@ static rspq_block_t *record_mesh(const mesh_t *mesh, packed_vertex_t *vertices, 
 }
 
 static void init_scene(void) {
-    assertf(scene_init(0) == 0, "Scene exceeds packed vertex capacity");
+    assertf(scene_init(TEXTURED) == 0, "Scene exceeds packed vertex capacity");
+    material_init();
     data_cache_hit_writeback(&scene_environment, sizeof(scene_environment));
     data_cache_hit_writeback(scene_frames, sizeof(scene_frames));
     for (unsigned b = 0; b < scene_environment.batch_count; b++) {
@@ -88,9 +168,13 @@ static void init_scene(void) {
 }
 
 static void prepare_scene(void) {
-    if (frame_pending[frame_slot]) rspq_syncpoint_wait(frame_fences[frame_slot]);
+    if (frame_pending[frame_slot]) {
+        rspq_flush();
+        while (!rspq_syncpoint_check(frame_fences[frame_slot])) sound_service();
+    }
     uint64_t start = get_ticks_us();
     scene_prepare(frame_slot);
+    assertf(scene_status() == 0, "Scene capacity or packed coordinate range exceeded");
     triangles = 0;
     for (unsigned p = 0; p < 4; p++)
         data_cache_hit_writeback(scene_frames[frame_slot][p], ((scene_rabbit.vertex_count + 1) / 2) * sizeof(packed_vertex_t));
@@ -98,11 +182,12 @@ static void prepare_scene(void) {
     submit_us = 0;
 }
 
-static void draw_scene(unsigned player) {
+static void draw_scene(unsigned view, uint32_t status) {
     uint64_t start_time = get_ticks_us();
-    viewport_t v = scene_views[player];
-    camera_t *cam = &scene_cameras[player];
-    T3DViewport *vp = &viewports[frame_slot][player];
+    unsigned player = game_view_port(view);
+    viewport_t v = scene_views[view];
+    camera_t *cam = &scene_cameras[view];
+    T3DViewport *vp = &viewports[frame_slot][view];
     T3DVec3 eye = {{cam->eye[0]/64.0f, cam->eye[1]/64.0f, cam->eye[2]/64.0f}};
     T3DVec3 target = {{cam->target[0]/64.0f, cam->target[1]/64.0f, cam->target[2]/64.0f}};
     t3d_viewport_set_area(vp, v.x, v.y, v.w, v.h);
@@ -118,19 +203,20 @@ static void draw_scene(unsigned player) {
     t3d_viewport_attach(vp);
     rdpq_clear(RGBA32(191,215,205,255));
     t3d_frame_start();
+    material_view_begin();
     rdpq_mode_dithering(DITHER_NONE_NONE);
-    rdpq_mode_combiner(RDPQ_COMBINER_SHADE);
     const uint8_t ambient[4] = {255,255,255,255};
     t3d_light_set_ambient(ambient);
     t3d_light_set_count(0);
-    t3d_state_set_drawflags(T3D_FLAG_SHADED | T3D_FLAG_DEPTH | T3D_FLAG_CULL_BACK);
     for (unsigned b = 0; b < scene_environment.batch_count; b++) {
         if (!t3d_frustum_vs_aabb_s16(&vp->viewFrustum, environment_bounds[b], environment_bounds[b]+3)) continue;
+        material_bind(scene_environment_materials[b]);
         rspq_block_run(environment_blocks[b]);
         triangles += scene_environment.batches[b].index_count/3;
     }
-    t3d_state_set_drawflags(T3D_FLAG_SHADED | T3D_FLAG_DEPTH | T3D_FLAG_CULL_BACK);
+    material_bind(MATERIAL_FLAT);
     for (unsigned p = 0; p < 4; p++) {
+        if (!(status & (1u << (16 + p)))) continue;
         if (!t3d_frustum_vs_aabb_s16(&vp->viewFrustum, scene_bounds[p], scene_bounds[p]+3)) continue;
         rspq_block_run(rabbit_blocks[frame_slot][p]);
         triangles += scene_rabbit.index_count/3;
@@ -138,7 +224,8 @@ static void draw_scene(unsigned player) {
     rdpq_set_mode_fill(player_colors[player]);
     rdpq_fill_rectangle(v.x, v.y, v.x + v.w, v.y + 2);
     rdpq_set_mode_standard();
-    rdpq_text_printf(NULL, 1, v.x + 6, v.y + 13, "P%d", player + 1);
+    rdpq_text_printf(NULL, 1, v.x + 6, v.y + 13, "P%d%s", player + 1,
+        BENCHMARK ? " TEST" : status & (1u << (12 + player)) ? "" : " OFF");
     submit_us += get_ticks_us() - start_time;
 }
 
@@ -155,16 +242,26 @@ int main(void) {
     rdpq_text_register_font(1, rdpq_font_load_builtin(FONT_BUILTIN_DEBUG_VAR));
     surface_t depth = surface_alloc(FMT_RGBA16, 320, 240);
     game_reset(0);
+    game_collision_demo(COLLISION_DEMO);
     init_scene();
-    for (unsigned i = 0; i < INITIAL_VIEWS % 4; i++) game_command(1);
-    if (AUTOTOUR) game_command(2);
-    debugf("Bunny Meadow: Zig simulation / RDPQ rasterization / 4 controllers\n");
-    uint64_t previous = get_ticks_us();
+    for (unsigned i = 0; i < INITIAL_VIEWS % 4; i++) game_command(GAME_CYCLE_VIEWS);
+    if (AUTOTOUR) game_command(GAME_TOGGLE_TOUR);
+    sound_init();
+    sound_update(game_status());
+    sound_service(); // Prime output before the first display wait.
+    debugf("Bunny Meadow: Zig simulation / RDPQ rasterization / 4 controllers; content=%s textured=%u\n", CONTENT_NAME, TEXTURED);
+    report_capacities(&depth);
+    report_memory("init", 0, &depth);
+    const uint64_t memory_start = get_ticks_us();
+    unsigned memory_seconds = 0;
+    uint64_t previous = memory_start;
     uint32_t accumulator = 0;
     unsigned frame_count = 0, fps = 0, benchmark_phase = 0;
     uint64_t fps_time = previous;
     while (1) {
-        surface_t *screen = display_get();
+        sound_service();
+        surface_t *screen;
+        while (!(screen = display_try_get())) sound_service();
         uint64_t now = get_ticks_us();
         uint64_t elapsed = now - previous;
         previous = now;
@@ -172,16 +269,23 @@ int main(void) {
         accumulator += elapsed > 250005 ? 250005 : (uint32_t)elapsed;
         unsigned steps = accumulator / 16667;
         accumulator %= 16667;
-        input();
         if (BENCHMARK) benchmark_phase = game_benchmark(steps);
-        else game_tick(steps);
+        else {
+            input();
+            game_tick(steps);
+        }
         uint32_t status = game_status();
+        sound_update(status);
+        sound_service();
         unsigned views = status & 255;
         rdpq_attach(screen, &depth);
         rdpq_clear(RGBA32(42,61,57,255));
         rdpq_clear_z(ZBUF_MAX);
         prepare_scene();
-        for (unsigned i = 0; i < views; i++) draw_scene(i);
+        for (unsigned i = 0; i < views; i++) {
+            draw_scene(i, status);
+            sound_service();
+        }
         rdpq_set_scissor(0, 0, 320, 240);
         if (views >= 3) {
             // Keep viewport scissor X aligned to four pixels for RDP fill
@@ -190,26 +294,37 @@ int main(void) {
             rdpq_fill_rectangle(159, views == 3 ? 121 : 16, 161, 224);
         }
         rdpq_set_mode_standard();
-        rdpq_text_printf(NULL, 1, 7, 11, "BUNNY MEADOW   /   %d PLAYER%s", views, views == 1 ? "" : "S");
+        rdpq_text_printf(NULL, 1, 7, 11, "BUNNY MEADOW   /   %d VIEW%s", views, views == 1 ? "" : "S");
         rdpq_text_printf(NULL, 1, 269, 11, "%d FPS", fps);
-        rdpq_text_print(NULL, 1, 7, 234, "START VIEWS   A HOP   C/L/R LOOK   Z TOUR");
+        rdpq_text_print(NULL, 1, 7, 234, "START VIEWS   A HOP   C-UP PAUSE   Z TOUR");
 #if PROFILE
         rdpq_text_printf(NULL, 1, 8, 219, "CPU %ums / SUBMIT %ums / %u TRI", transform_us/1000, submit_us/1000, triangles);
 #endif
         if (BENCHMARK) rdpq_text_printf(NULL, 1, 230, 206, "TEST %u", benchmark_phase);
-        if (status & 256) rdpq_text_print(NULL, 1, 230, 219, "AUTO TOUR");
+        if (status & GAME_STATUS_PAUSED) rdpq_text_print(NULL, 1, 230, 219, "PAUSED");
+        else if (status & GAME_STATUS_TOUR) rdpq_text_print(NULL, 1, 230, 219, "AUTO TOUR");
         rdpq_detach_show();
         frame_fences[frame_slot] = rspq_syncpoint_new();
         frame_pending[frame_slot] = true;
         frame_slot = (frame_slot + 1) % 3;
+        sound_service();
         frame_count++;
         if (now - fps_time >= 1000000) {
             fps = (unsigned)(frame_count * 1000000ULL / (now - fps_time));
+            sound_stats_t audio = sound_take_stats();
+            unsigned audio_us = audio.mix_us / frame_count;
+            (void)audio_us; // Only printed in diagnostic builds.
             frame_count = 0;
             fps_time = now;
+            memory_seconds++;
+            if (memory_seconds == 1 || memory_seconds % 10 == 0)
+                report_memory("run", (unsigned)((now - memory_start) / 1000), &depth);
 #if PROFILE || BENCHMARK || defined(RDPQ_VALIDATE)
-            debugf("PERF views=%u phase=%u fps=%u cpu_us=%u submit_us=%u triangles=%u\n",
-                views, benchmark_phase, fps, transform_us, submit_us, triangles);
+            debugf("PERF views=%u phase=%u fps=%u cpu_us=%u submit_us=%u triangles=%u "
+                "audio=%u audio_us=%u audio_buffers=%lu audio_gap_us=%lu audio_budget_us=%lu "
+                "audio_sfx=%lu audio_overlap=%lu workload=2 textured=%u content=%s collision=%u\n",
+                views, benchmark_phase, fps, transform_us, submit_us, triangles,
+                AUDIO, audio_us, audio.buffers, audio.max_gap_us, audio.budget_us, audio.starts, audio.overlap, TEXTURED, CONTENT_NAME, COLLISION_DEMO);
 #endif
         }
     }

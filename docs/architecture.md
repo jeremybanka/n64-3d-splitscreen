@@ -5,6 +5,10 @@
 `game.zig` advances one shared world at 60 Hz. All four controller ports own
 persistent rabbits, independently of how many cameras are visible. Jump and
 recenter button edges survive render frames that contain no simulation step.
+Games can set participation and visible-port masks independently of controller
+connections, and pause or restart through the [lifecycle API](multiplayer.md).
+Removed participants stop simulating/colliding/rendering; hidden participants
+continue. Viewport slots compact the selected physical ports in ascending order.
 
 At startup, `scene.zig` builds indexed world and rabbit meshes in Tiny3D's
 packed vertex layout. Every batch uses at most 64 RSP vertices, with even,
@@ -27,6 +31,21 @@ clips triangles, culls back faces and performs triangle setup on the **RSP**.
 The **RDP** shades and rasterizes them with antialiasing and depth comparison.
 RDPQ continues to own drawing state, clears, the Z surface, HUD and presentation.
 No CPU projection, triangle clipping or framebuffer rasterizer remains.
+
+## Audio alongside rendering
+
+`src/sound.c` owns five libdragon mixer channels: music and one hop voice per
+physical player. Zig only emits a drained scalar event word after gameplay
+steps. Pause, reset and participation removal clear stale events and stop the
+appropriate voices. See [audio lifecycle and assets](audio.md).
+
+Audio is produced cooperatively with `audio_write_begin`, `mixer_poll`, and
+`audio_write_end`. The mixer shares the RSP with Tiny3D. The display wait uses
+`display_try_get`, and frame-fence waiting uses `rspq_flush` and
+`rspq_syncpoint_check`, leaving room to service audio while waiting. Services
+also run around simulation and between views. No audio mixer work runs inside
+an interrupt callback. Diagnostic builds report mixing cost and the maximum
+service gap; the buffer-budget guard is not a hardware underrun measurement.
 
 ## Coordinates and asynchronous data
 
@@ -57,13 +76,16 @@ not O64. The engine is built for big-endian MIPS III/N32, with 64-bit GPRs,
 Only functions taking zero or one `uint32_t` argument and returning `uint32_t`
 cross the boundary. No float, pointer, struct, varargs, or stack-passed
 arguments cross it. The controller word packs signed X/Y axes into bytes
-0/1, flags into bits 16–19, and the player index into bits 30–31.
+0/1, gameplay flags into bits 16–19, held action/command indicators into bits
+20–22, and the physical port into bits 30–31. The held indicators allow lifecycle
+transitions to suppress stale actions until a neutral poll rearms the port.
 
 Data is shared separately through exported global symbols, never an
 ABI-dependent aggregate call. `bridge.h` and Zig tests verify the layouts:
 two interleaved vertices occupy 32 bytes, a batch descriptor and viewport each
 occupy 16 bytes, and a camera occupies 24 bytes. Packed positions are signed
-16-bit Q8; the RSP vertex colors and unused normal/UV fields match Tiny3D.
+16-bit Q8; RSP vertex colors and normal/UV fields match Tiny3D. The optional
+ground material uses signed 10.5 texel UVs, while actor UVs and normals stay zero.
 
 `patch_mips_abi.zig` relabels the object's metadata for the GNU O64 linker.
 This is valid only together with this deliberately restricted interface.
@@ -99,7 +121,10 @@ pack. Keep scenery groups small enough for useful frustum culling.
 The mesh builder reports capacity exhaustion before writing outside its arrays.
 Actor bounds derive from mesh coordinates and motion amplitudes; the host test
 verifies every packed body/shadow vertex throughout the benchmark for both
-packs. The exporter also predicts packing, and host tests compare its count
+packs. Optional `just build --textured 1` marks the existing floor batches for a repeating
+RGBA16 material; [texture documentation](../assets/textures/README.md) describes
+per-view texture residency, state restoration and resource costs.
+The exporter also predicts packing, and host tests compare its count
 with the actual renderer. C ABI names and hardware adapter code are shared.
 
 The normal build uses the checked-in exported rabbit mesh. Tiny3D is pinned
@@ -110,6 +135,6 @@ and builds only the library. See the [upstream project](https://github.com/HailT
 and its [MIT license](licenses/Tiny3D.txt).
 
 Run `just build --benchmark 1` after a renderer change, record ISViewer diagnostics,
-and use `scripts/check-performance.nu` to check all three 20-second workloads.
-`PROFILE=1` adds CPU/submission timings; `VALIDATE=1` enables RDPQ validation
+and use `nu --no-config-file scripts/check-performance.nu` to check all three 20-second workloads.
+`--profile 1` adds CPU/submission timings; `--validate 1` enables RDPQ validation
 and is deliberately excluded from performance acceptance.

@@ -3,11 +3,15 @@
 A Zig-first Nintendo 64 template with one shared 3D world, four little rabbit
 characters, and **1–4 independent third-person cameras**. Triangles, depth
 buffering, antialiasing, clears, and text are drawn by **libdragon RDPQ**.
-**Tiny3D runs transforms and clipping on the RSP**, sustaining 40+ FPS in the
-four-player emulator benchmark. Gameplay and mesh preparation remain in Zig.
+**Tiny3D runs transforms and clipping on the RSP**. The archived pre-audio,
+untextured four-player emulator benchmark sustained 40+ FPS. Gameplay and mesh preparation remain in Zig.
 There is no CPU framebuffer rasterizer.
 
 <img src="docs/screenshots/4-players.png" width="640" height="480" alt="Four players in the same 3D meadow">
+
+Browse the [template showcase](gallery/README.md) for fresh ares captures of
+the content packs, controller lifecycle, textured ground, collision scene and
+combined build, with source commits, ROM hashes and test observations.
 
 ## Play
 
@@ -24,11 +28,15 @@ rabbit. A controller is not required to see the initial demonstration.
 | Player 1 Start | Cycle 4 → 1 → 2 → 3 → 4 views |
 | Player 1 Z | Toggle the automatic walking/camera tour |
 | Player 1 C-down | Reset the shared world |
+| Player 1 C-up | Pause / resume |
 
 One player fills the screen. Two players use horizontal halves. Three use a
 wide top view and two lower views. Four use quadrants. Projection uses each
 view's actual dimensions, with RDP scissoring preventing any drawing across
-the separators.
+the separators. `OFF` marks a disconnected controller without removing its
+rabbit. Release all controls after boot, reconnect, reset, or pause/resume to
+rearm input. [Multiplayer lifecycle](docs/multiplayer.md) describes participation,
+visible-port mapping, and the small pause/reset interface for game forks.
 
 ## Build and run
 
@@ -70,8 +78,11 @@ just build --views 1             # 1, 2, 3, or 4
 just build --views 3 --autotour 1 # animated demonstration
 just build --profile 1           # scene/submission times and triangle count
 just build --validate 1          # libdragon RDP command validation (slow)
-just build --benchmark 1         # three repeatable four-controller workloads
+just build --benchmark 1         # graphics + audio, including four overlapping hops
+just build --benchmark 1 --audio 0 # identical workload with audio disabled
 just build --content robot-courtyard # alternate character, palette, motion and scenery
+just build --textured 1          # optional repeating 16x16 ground texture
+just build --collision 1         # solid boxes, wall sliding and camera clearance
 just build                       # restores the normal four-player configuration
 ```
 
@@ -84,16 +95,20 @@ rendering, with bounded catch-up after a pause.
 ## Make it your game
 
 - `src/game.zig`: player state, input packing, movement, hopping, separation,
-  camera yaw, tour, and view count. Replace or extend these rules.
+  camera yaw, tour, connection/participation policy, and pause/reset hooks.
 - `src/scene.zig`: viewport layouts, camera inputs, indexed RSP batches,
   spatial scenery groups, shared rabbit poses, and visibility bounds.
 - `src/main.c`: libdragon/Tiny3D adapter for controllers, timing, camera
   matrices, visibility tests, RSP command blocks, depth and presentation.
 - `src/bridge.h`: the explicit fixed-width ABI/data contract.
+- `src/sound.c`: streamed music, per-player effects, and cooperative audio service.
+- `assets/audio/`: original ready-to-convert WAV sources; [audio guide](docs/audio.md).
 - `src/content-*.zig`: selectable mesh, palette, motion and environment recipes.
 - `scripts/model-recipes.nu`: native Nu scene recipes for the sample model.
 - `scripts/export-mesh.nu`: mesh conversion, validation and Zig export.
 - `scripts/blender-adapter.py`: the minimal Blender `bpy` API adapter.
+- `src/collision.zig`: bounded Q8 box/segment queries and swept arena movement.
+- `src/arena.zig`: optional solid-box layout and camera-clearance example.
 - `assets/rabbit.blend`: editable character and studio scene.
 - `src/generated/rabbit.zig`: ROM-ready indexed mesh (130 vertices / 188 triangles).
 
@@ -101,7 +116,10 @@ The player jerseys are colored per instance. Feet and arms move while walking,
 ears sway, and all players are depth-tested against the same environment.
 Trees, rocks, mushrooms, and the carrot monument are decorative; the sample
 physics implements ground, world bounds, and player separation, not general
-mesh collision. No audio, save system, or networking is included.
+mesh collision. An original music loop and overlapping per-player hop sounds
+exercise libdragon's RSP mixer. No save system or networking is included.
+Build with `just build --collision 1` for three explicit solid boxes, swept wall sliding, and
+camera shortening. See [arena queries and supported limits](docs/collision.md).
 
 ```sh
 just models  # export saved .blend files; set BLENDER for another executable location
@@ -113,23 +131,28 @@ mesh after validation. Nu owns recipes, validation and serialization; the only
 Python file translates Blender's `bpy` data through a JSON adapter. The alternate
 robot courtyard demonstrates replacing content without changing the C adapter.
 See the [asset workflow](assets/README.md) for collection/material metadata,
-coordinates, capacity checks and explicit source generation commands.
+coordinates, capacity checks and explicit source generation commands. The
+[optional texture example](assets/textures/README.md) documents UVs, TMEM costs
+and material state across split views.
 
 ![Rabbit model](assets/rabbit-preview.png)
 
 ## Verification and limits
 
-`just test` runs native Nu mesh-validation checks and 12 Zig tests for each
-content pack, covering controller isolation, button edges,
-world bounds, view layouts, RSP packing/budgets, frame-slot isolation and
+`just test` runs native Nu asset/workload checks, C material-state tests and
+38 Zig tests for each
+content pack, covering controller isolation, lifecycle transitions, audio events,
+button edges, swept obstacle movement, world bounds, view layouts, RSP packing/budgets, frame-slot isolation and
 animation bounds throughout all three benchmark phases. `just verify` checks the ROM
 header, O64 ELF, implicit runtime calls, and the reserved global pointer.
 
 GitHub Actions runs separate **Check** and **Test** workflows on main pushes and
-pull requests. Check runs Zig formatting, native Nu parsing and SDK fixtures,
-and actionlint. Test runs the host suite in Debug and ReleaseSmall, then builds and
-verifies all four default layouts, validation and benchmark ROMs, and two
-alternate-content ROMs. Download those
+pull requests. Check runs Zig formatting, native Nu parsing, SDK fixtures,
+original WAV/texture verification, audio/benchmark/memory tests, and actionlint. Test runs the
+host suite in Debug and ReleaseSmall, then builds and verifies all four default
+layouts, validation and audio-on/off benchmark ROMs, and two
+alternate-content ROMs, plus textured layouts and both packs' validation/benchmark ROMs.
+Collision and combined texture/collision validation and benchmark variants are also included. Download those
 ROMs from the Test run's artifacts. Run the same commands locally:
 
 ```sh
@@ -151,18 +174,28 @@ the ABI; emulator visuals and FPS still require an ares run. See
 See [the ares verification record](docs/verification.md) and
 [the Zig/libdragon architecture](docs/architecture.md), especially before
 changing compiler flags or the ABI bridge. Transforms, clipping, triangle setup and rasterization now run on the N64
-coprocessors. The final four-player stress run sustained **51–60 FPS across
-115 one-second samples**; see the verification record for measurements and pictures.
+coprocessors. The archived pre-audio, untextured four-player stress run sustained **51–60 FPS across
+115 one-second samples** before audio was integrated; see the verification record
+for measurements and pictures. Combined graphics/audio FPS and listening checks
+remain pending. [Audio benchmark instructions](docs/audio.md#benchmark-comparison)
+keep the new simultaneous-hop workload separate from those historical captures.
 
 To check a captured benchmark log:
 
 ```sh
-nu scripts/check-performance.nu path/to/ares-isviewer.log
+nu --no-config-file scripts/check-performance.nu path/to/ares-isviewer.log --textured off
+# Use --textured on for the texture demo; --audio legacy --textured legacy --collision legacy for historical logs.
 ```
 
 The framebuffer is 320×240 at 16 bpp, triple buffered, with one shared 16-bit
-Z surface. No Expansion Pak is required by the allocation budget. Real N64,
-SummerCart64, and M64 hardware have not been tested in this adaptation.
+Z surface: 614,400 bytes of pixel/depth payload before allocator overhead.
+The owner reports that the template runs well on actual hardware. Console,
+region, RAM, cart, controller coverage, ROM hash, duration and measured FPS
+were not supplied. Base 4 MiB operation is an acceptance target; the final
+feature combination still needs a captured 4 MiB run. See the
+[hardware record](docs/hardware.md), [memory and geometry limits](docs/operating-envelope.md),
+and [release/fork gate](docs/release-gate.md). Startup and periodic `MEMORY` logs
+report the actual detected RAM, TV region and sampled heap headroom.
 
 For hardware deployment, connect a SummerCart64 and run `just deploy`;
 `just debug` opens its debug terminal. For SD-card use, copy the `.z64`
