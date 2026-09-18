@@ -9,6 +9,10 @@ There is no CPU framebuffer rasterizer.
 
 <img src="docs/screenshots/4-players.png" width="640" height="480" alt="Four players in the same 3D meadow">
 
+Browse the [template showcase](gallery/README.md) for fresh ares captures of
+the content packs, controller lifecycle, textured ground, collision scene and
+combined build, with source commits, ROM hashes and test observations.
+
 ## Play
 
 The ROM opens in four-player mode. All four rabbits exist in the world even

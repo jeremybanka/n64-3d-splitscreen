@@ -1,5 +1,11 @@
 # Emulator verification — 2026-09-06
 
+For the later template PRs, see the [September 17–18 gallery smoke checks](../gallery/README.md).
+That session includes the new content/material/collision scenes, an emulated
+controller disconnect/reconnect, and an audio decoder regression with a locally
+tested repair awaiting publication. The historical measurements below still describe their original
+ROMs; the gallery does not replace the sustained performance or hardware gates.
+
 The initial template was checked in as `7d8ed1a` before optimization. That
 renderer reached 12 FPS at rest and approximately 8 FPS with all four cameras
 moving. Its measured CPU geometry/submission times were 68/51 ms in motion.
