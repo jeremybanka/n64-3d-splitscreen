@@ -276,7 +276,7 @@
     "video_driver": "OpenGL 3.2",
     "ram_mib": 8,
     "homebrew_mode": true,
-    "source_status": "Local candidate: audio repair publication awaits approval"
+    "source_status": "Historical local candidate: decoder repair now included; original capture identity retained"
   },
   {
     "pr": 14,
@@ -303,7 +303,7 @@
     "video_driver": "OpenGL 3.2",
     "ram_mib": 8,
     "homebrew_mode": true,
-    "source_status": "Local candidate: audio repair publication awaits approval"
+    "source_status": "Historical local candidate: decoder repair now included; original capture identity retained"
   },
   {
     "pr": 14,
@@ -332,6 +332,6 @@
     "video_driver": "OpenGL 3.2",
     "ram_mib": 8,
     "homebrew_mode": true,
-    "source_status": "Local candidate: audio repair publication awaits approval"
+    "source_status": "Historical local candidate: decoder repair now included; original capture identity retained"
   }
 ]

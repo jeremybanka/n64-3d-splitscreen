@@ -12,13 +12,13 @@ the same final ROM.
 The native filenames retain ares's local capture times in America/Los_Angeles;
 `collected_at` records when each PNG was copied into this gallery.
 
-**Publication status:** this gallery update changes documentation and images
-only. The audio repair (`30435da`) and combined repaired build (`b377ec9`) were
-tested locally; publishing the repair and restacking PRs #11–#14 awaits owner
-approval. Those two source commits are not yet available from GitHub. The
-unrepaired audio benchmark in the current PR stack still has the assertion
-shown below. Candidate screenshots are evidence for the proposed fix, not for
-the currently published runtime code.
+**Capture provenance:** the repaired audio (`30435da`) and combined (`b377ec9`)
+screenshots were taken from local candidates before the template PRs merged.
+Their decoder-ownership repair is now included in [the sound adapter](../src/sound.c),
+with a [host regression](../tests/audio/sound-test.c). The manifest retains
+the original capture commits and ROM hashes; those historical local commits
+are not available from GitHub. These images document the earlier smoke run,
+not a new capture or hardware result for this revision.
 
 ## Combined template
 
